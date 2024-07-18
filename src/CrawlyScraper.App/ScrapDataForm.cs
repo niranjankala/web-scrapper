@@ -1,10 +1,15 @@
 ﻿using HtmlAgilityPack;
+using Microsoft.FSharp.Data.UnitSystems.SI.UnitNames;
 using OfficeOpenXml;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
+using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Xml.Linq;
 using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 
 
@@ -65,14 +70,33 @@ namespace CrawlyScraper
                     {
                         ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("Products");
 
-                        // Headers
-                        worksheet.Cells[1, 1].Value = "Product Name";
-                        worksheet.Cells[1, 2].Value = "Product Link";
-                        worksheet.Cells[1, 3].Value = "Product Image";
-                        worksheet.Cells[1, 4].Value = "Product Price";
-                        worksheet.Cells[1, 5].Value = "Availability";
-                        worksheet.Cells[1, 6].Value = "Brand";
+                        List<string> columns = new List<string>()
+                        {
+                            "Product Name",
+                            "Product Link",
+                            "Product Image",
+                            "Product Price",
+                            "Availability",
+                            "Brand",
+                            "Description"
+                        };
+                        products.SelectMany(p => p.ProductDetails.Keys)
+                            .Distinct()
+                            .ToList()
+                            .ForEach(pName =>
+                            {
+                                if (!columns.Contains(pName))
+                                {
+                                    columns.Add(pName);
+                                }
+                            });
 
+
+                        // Headers
+                        for (int i = 0; i < columns.Count; i++)
+                        {
+                            worksheet.Cells[1, i+1].Value = columns[i];                            
+                        }
                         // Data
                         int row = 2;
                         foreach (var product in products)
@@ -83,6 +107,11 @@ namespace CrawlyScraper
                             worksheet.Cells[row, 4].Value = product.ProductPrice;
                             worksheet.Cells[row, 5].Value = product.Availability;
                             worksheet.Cells[row, 6].Value = product.Brand;
+                            worksheet.Cells[row, 7].Value = product.Description;
+                            foreach (string specName in product.ProductDetails.Keys)
+                            {
+                                worksheet.Cells[row, columns.IndexOf(specName)+1].Value = product.ProductDetails[specName];
+                            }                            
                             row++;
                         }
 
@@ -106,6 +135,8 @@ namespace CrawlyScraper
             List<Product> products = new List<Product>();
             try
             {
+                Uri uri = new Uri(url);
+                string baseUrl = $"{uri.Scheme}://{uri.Host}";
                 HtmlWeb web = new HtmlWeb();
                 var document = web.Load(url);
 
@@ -119,18 +150,25 @@ namespace CrawlyScraper
 
                         var productLinkNode = node.SelectSingleNode(".//a[@class='prFeatureName']");
                         var productLink = productLinkNode != null ? productLinkNode.GetAttributeValue("href", "N/A") : "N/A";
+                        if (productLink != "N/A")
+                        {
+                            productLink = $@"{baseUrl}{productLink}";
+                        }
+
 
                         var productImageNode = node.SelectSingleNode(".//img[@class='AH_LazyLoadImg']");
                         var productImage = productImageNode != null ? productImageNode.GetAttributeValue("data-original", "N/A") : "N/A";
+                        productImage = productImage.Replace(@"//static1.industrybuying.com/products", "catalog/default/product");
 
                         var productPriceNode = node.SelectSingleNode(".//span[@class='rs']");
                         var productPrice = productPriceNode != null ? productPriceNode.InnerText.Trim() : "N/A";
-
+                        bool isProductsGroup = false;
                         if (productPrice == "N/A")
                         {
                             // Try another node for price if the first one is not found
-                            productPriceNode = node.SelectSingleNode(".//div[@class='proPriceSpan']");
+                            productPriceNode = node.SelectSingleNode(".//div[contains(@class,'proPriceSpan')]");
                             productPrice = productPriceNode != null ? ParseProductPrice(productPriceNode.InnerText.Trim()) : "N/A";
+                            isProductsGroup = true;
                         }
 
                         var productAvailabilityNode = node.SelectSingleNode(".//div[@class='express-delivery-in']");
@@ -139,15 +177,20 @@ namespace CrawlyScraper
                         var productManufacturerNode = node.SelectSingleNode(".//span[@class='brand']");
                         var productManufacturer = productManufacturerNode != null ? productManufacturerNode.InnerText.Trim() : "N/A";
 
-                        products.Add(new Product
+
+                        var product = new Product
                         {
                             ProductName = productName,
                             ProductLink = productLink,
                             ProductImage = productImage,
                             ProductPrice = productPrice,
                             Availability = productAvailability,
-                             Brand = productManufacturer
-                        });
+                            Brand = productManufacturer
+                        };
+
+                        var productsGroup = GetProductDetails(product, isProductsGroup);
+                        products.AddRange(productsGroup);
+
                     }
                 }
                 else
@@ -159,7 +202,7 @@ namespace CrawlyScraper
                         ProductImage = "N/A",
                         ProductPrice = "N/A",
                         Availability = "N/A",
-                         Brand = "N/A"
+                        Brand = "N/A"
                     });
                 }
             }
@@ -170,6 +213,66 @@ namespace CrawlyScraper
             }
 
             return products;
+        }
+
+        private List<Product> GetProductDetails(Product product, bool isProductsGroup)
+        {
+            List<Product> products = new List<Product>();
+
+            if (!isProductsGroup)
+            {
+                var productDetails = GetProductDetails(product);
+                products.Add(product);
+            }
+            else
+            {
+                //Process the page that has list of products by finding the URL of the products
+                var productDetails = GetProductDetails(product);
+                products.Add(product);
+                
+            }
+            return products;
+        }
+
+        private Product GetProductDetails(Product product)
+        {
+            HtmlWeb web = new HtmlWeb();
+            var document = web.Load(product.ProductLink);
+
+            var descriptionNode = document.DocumentNode.SelectSingleNode(".//div[@class='descriptionContent']");
+            product.Description = descriptionNode != null ? descriptionNode.InnerHtml.Trim() : "";
+
+            var gstInclusivePriceNode = document.DocumentNode.SelectSingleNode(".//span[@class='AH_PricePerPiece']");
+            var gstInclusivePrice = gstInclusivePriceNode != null ? gstInclusivePriceNode.InnerText.Trim() : "N/A";            
+
+            var gstExclusivePriceNode = document.DocumentNode.SelectSingleNode(".//div[@class='mainPrice']/span[@class='price']");
+            var gstExclusivePrice = gstExclusivePriceNode != null ? gstExclusivePriceNode.InnerText.Trim() : "N/A";
+
+            product.ProductDetails.Add("GST Inclusive Price", gstInclusivePrice);
+            product.ProductDetails.Add("GST Exclusive Price", gstExclusivePrice);
+
+
+            var rowNodes = document.DocumentNode.SelectNodes("//div[@id='productSpecifications']/div[contains(@class,'tabDetailsContainer')]//div[contains(@class,'filterRow')]");
+
+            if (rowNodes != null)
+            {
+                foreach (var node in rowNodes)
+                {
+                    var featureNameNode = node.SelectSingleNode(".//div[@class='featureNamePr']");
+                    var featureName = featureNameNode != null ? featureNameNode.InnerText.Trim() : "N/A";
+
+                    var featureValueNode = node.SelectSingleNode(".//div[@class='featureValuePr']");
+                    var featureValue = featureValueNode != null ? featureValueNode.InnerText.Trim() : "N/A";
+                    featureValue = featureValue.TrimStart(' ', ':');                   
+
+                    if (!product.ProductDetails.ContainsKey(featureName))
+                    {
+                        product.ProductDetails.Add(featureName, featureValue);
+                    }
+                }
+            }
+
+            return product;
         }
 
         private string ParseProductPrice(string priceText)
@@ -192,8 +295,40 @@ namespace CrawlyScraper
             public string ProductLink { get; set; }
             public string ProductImage { get; set; }
             public string ProductPrice { get; set; }
+            public string PriceIncludingGST { get; set; }
+            public string PriceExcludingGST { get; set; }
             public string Availability { get; set; }
             public string Brand { get; set; }
+            public string Description { get; set; }
+
+            public Dictionary<string, string> ProductDetails { get; set; } = new Dictionary<string, string>();
         }
+
+        private class ProductDetail
+        {
+
+            public string SKU { get; set; }
+            public string BrandName { get; set; }
+            public string EnginePower { get; set; }
+            public string CountryofOrigin { get; set; }
+            public string TypeofProduct { get; set; }
+            public string Weight { get; set; }
+            public string Dimension { get; set; }
+            public string ModelNo { get; set; }
+            public string NoofGears { get; set; }
+            public string UsageApplication { get; set; }
+            public string NoofBlades { get; set; }
+            public string OperationMethod { get; set; }
+            public string AutomationGrade { get; set; }
+            public string NameofManufacturer_Packer_Importer { get; set; }
+
+
+
+
+
+
+        }
+
+
     }
 }

@@ -15,80 +15,89 @@
 
         private void InitializeComponent()
         {
-            this.textBoxBaseUrl = new System.Windows.Forms.TextBox();
-            this.buttonStart = new System.Windows.Forms.Button();
-            this.textBoxContent = new System.Windows.Forms.TextBox();
-            this.textBoxPages = new System.Windows.Forms.TextBox();
-            this.labelBaseUrl = new System.Windows.Forms.Label();
-            this.labelPages = new System.Windows.Forms.Label();
-            this.SuspendLayout();
+            textBoxBaseUrl = new TextBox();
+            buttonStart = new Button();
+            textBoxContent = new TextBox();
+            textBoxPages = new TextBox();
+            labelBaseUrl = new Label();
+            labelPages = new Label();
+            SuspendLayout();
             // 
             // textBoxBaseUrl
             // 
-            this.textBoxBaseUrl.Location = new System.Drawing.Point(12, 29);
-            this.textBoxBaseUrl.Name = "textBoxBaseUrl";
-            this.textBoxBaseUrl.Size = new System.Drawing.Size(775, 22);
-            this.textBoxBaseUrl.TabIndex = 0;
-            // 
-            // textBoxPages
-            // 
-            this.textBoxPages.Location = new System.Drawing.Point(12, 71);
-            this.textBoxPages.Name = "textBoxPages";
-            this.textBoxPages.Size = new System.Drawing.Size(100, 22);
-            this.textBoxPages.TabIndex = 1;
+            textBoxBaseUrl.Location = new Point(18, 54);
+            textBoxBaseUrl.Margin = new Padding(4, 6, 4, 6);
+            textBoxBaseUrl.Name = "textBoxBaseUrl";
+            textBoxBaseUrl.Size = new Size(1160, 35);
+            textBoxBaseUrl.TabIndex = 0;
+            textBoxBaseUrl.Text = "https://www.industrybuying.com/agriculture-garden-landscaping-2384/harvester-2752/";
             // 
             // buttonStart
             // 
-            this.buttonStart.Location = new System.Drawing.Point(12, 109);
-            this.buttonStart.Name = "buttonStart";
-            this.buttonStart.Size = new System.Drawing.Size(775, 23);
-            this.buttonStart.TabIndex = 2;
-            this.buttonStart.Text = "Start Crawling";
-            this.buttonStart.UseVisualStyleBackColor = true;
-            this.buttonStart.Click += new System.EventHandler(this.btnScrapData_Click);
+            buttonStart.Location = new Point(18, 204);
+            buttonStart.Margin = new Padding(4, 6, 4, 6);
+            buttonStart.Name = "buttonStart";
+            buttonStart.Size = new Size(1162, 43);
+            buttonStart.TabIndex = 2;
+            buttonStart.Text = "Start Crawling";
+            buttonStart.UseVisualStyleBackColor = true;
+            buttonStart.Click += btnScrapData_Click;
             // 
             // textBoxContent
             // 
-            this.textBoxContent.Location = new System.Drawing.Point(12, 147);
-            this.textBoxContent.Multiline = true;
-            this.textBoxContent.Name = "textBoxContent";
-            this.textBoxContent.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.textBoxContent.Size = new System.Drawing.Size(775, 368);
-            this.textBoxContent.TabIndex = 3;
+            textBoxContent.Location = new Point(18, 276);
+            textBoxContent.Margin = new Padding(4, 6, 4, 6);
+            textBoxContent.Multiline = true;
+            textBoxContent.Name = "textBoxContent";
+            textBoxContent.ScrollBars = ScrollBars.Vertical;
+            textBoxContent.Size = new Size(1160, 686);
+            textBoxContent.TabIndex = 3;
+            // 
+            // textBoxPages
+            // 
+            textBoxPages.Location = new Point(18, 133);
+            textBoxPages.Margin = new Padding(4, 6, 4, 6);
+            textBoxPages.Name = "textBoxPages";
+            textBoxPages.Size = new Size(148, 35);
+            textBoxPages.TabIndex = 1;
+            textBoxPages.Text = "4";
             // 
             // labelBaseUrl
             // 
-            this.labelBaseUrl.AutoSize = true;
-            this.labelBaseUrl.Location = new System.Drawing.Point(12, 9);
-            this.labelBaseUrl.Name = "labelBaseUrl";
-            this.labelBaseUrl.Size = new System.Drawing.Size(71, 17);
-            this.labelBaseUrl.TabIndex = 4;
-            this.labelBaseUrl.Text = "Base URL";
+            labelBaseUrl.AutoSize = true;
+            labelBaseUrl.Location = new Point(18, 17);
+            labelBaseUrl.Margin = new Padding(4, 0, 4, 0);
+            labelBaseUrl.Name = "labelBaseUrl";
+            labelBaseUrl.Size = new Size(99, 30);
+            labelBaseUrl.TabIndex = 4;
+            labelBaseUrl.Text = "Base URL";
             // 
             // labelPages
             // 
-            this.labelPages.AutoSize = true;
-            this.labelPages.Location = new System.Drawing.Point(12, 51);
-            this.labelPages.Name = "labelPages";
-            this.labelPages.Size = new System.Drawing.Size(111, 17);
-            this.labelPages.TabIndex = 5;
-            this.labelPages.Text = "Pages to Scrape";
+            labelPages.AutoSize = true;
+            labelPages.Location = new Point(18, 96);
+            labelPages.Margin = new Padding(4, 0, 4, 0);
+            labelPages.Name = "labelPages";
+            labelPages.Size = new Size(160, 30);
+            labelPages.TabIndex = 5;
+            labelPages.Text = "Pages to Scrape";
             // 
-            // MainForm
+            // ScrapDataForm
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 527);
-            this.Controls.Add(this.labelPages);
-            this.Controls.Add(this.labelBaseUrl);
-            this.Controls.Add(this.textBoxContent);
-            this.Controls.Add(this.buttonStart);
-            this.Controls.Add(this.textBoxPages);
-            this.Controls.Add(this.textBoxBaseUrl);
-            this.Name = "MainForm";
-            this.Text = "Web Crawler";
-            this.ResumeLayout(false);
-            this.PerformLayout();
+            AutoScaleDimensions = new SizeF(12F, 30F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(1200, 988);
+            Controls.Add(labelPages);
+            Controls.Add(labelBaseUrl);
+            Controls.Add(textBoxContent);
+            Controls.Add(buttonStart);
+            Controls.Add(textBoxPages);
+            Controls.Add(textBoxBaseUrl);
+            Margin = new Padding(4, 6, 4, 6);
+            Name = "ScrapDataForm";
+            Text = "Web Crawler";
+            ResumeLayout(false);
+            PerformLayout();
         }
 
         private System.Windows.Forms.TextBox textBoxBaseUrl;
