@@ -42,6 +42,24 @@ namespace CrawlyScraper
 
             textBoxContent.Clear();
 
+            // Generate Excel file
+            SaveFileDialog saveDialog = new SaveFileDialog
+            {
+                Filter = "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
+                FilterIndex = 1,
+                RestoreDirectory = true
+            };
+            string filePath;
+            string targetDirectory;
+            if (saveDialog.ShowDialog() == DialogResult.OK)
+            {
+
+                filePath = saveDialog.FileName;
+                targetDirectory = Path.GetDirectoryName(saveDialog.FileName);
+            }
+            else
+            { return; }
+
             List<Product> products = new List<Product>();
 
             for (int i = 1; i <= pages; i++)
@@ -52,36 +70,21 @@ namespace CrawlyScraper
             }
 
             // Ask the user to select a directory to save images
-            using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
+
+            // Download images
+            await DownloadImagesAsync(products, targetDirectory);
+
+
+
+            try
             {
-                if (folderDialog.ShowDialog() == DialogResult.OK)
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+                using (ExcelPackage package = new ExcelPackage())
                 {
-                    string targetDirectory = folderDialog.SelectedPath;
+                    ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("Products");
 
-                    // Download images
-                    await DownloadImagesAsync(products, targetDirectory);
-
-                    // Generate Excel file
-                    SaveFileDialog saveDialog = new SaveFileDialog
-                    {
-                        Filter = "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
-                        FilterIndex = 1,
-                        RestoreDirectory = true
-                    };
-
-                    if (saveDialog.ShowDialog() == DialogResult.OK)
-                    {
-                        string filePath = saveDialog.FileName;
-
-                        try
-                        {
-                            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-
-                            using (ExcelPackage package = new ExcelPackage())
-                            {
-                                ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("Products");
-
-                                List<string> columns = new List<string>
+                    List<string> columns = new List<string>
                             {
                                 "Product Name",
                                 "Product Link",
@@ -93,53 +96,51 @@ namespace CrawlyScraper
                                 "Description"
                             };
 
-                                products.SelectMany(p => p.ProductDetails.Keys)
-                                    .Distinct()
-                                    .ToList()
-                                    .ForEach(pName =>
-                                    {
-                                        if (!columns.Contains(pName))
-                                        {
-                                            columns.Add(pName);
-                                        }
-                                    });
-
-                                for (int i = 0; i < columns.Count; i++)
-                                {
-                                    worksheet.Cells[1, i + 1].Value = columns[i];
-                                }
-
-                                int row = 2;
-                                foreach (var product in products)
-                                {
-                                    worksheet.Cells[row, 1].Value = product.ProductName;
-                                    worksheet.Cells[row, 2].Value = product.ProductLink;
-                                    worksheet.Cells[row, 3].Value = product.ProductImages.Any()? product.ProductImages.First():"N/A";
-                                    worksheet.Cells[row, 4].Value = product.DownloadImages.Any() ? product.DownloadImages.First() : "N/A";
-                                    worksheet.Cells[row, 5].Value = product.ProductPrice;
-                                    worksheet.Cells[row, 6].Value = product.Availability;
-                                    worksheet.Cells[row, 7].Value = product.Brand;
-                                    worksheet.Cells[row, 8].Value = product.Description;
-                                    foreach (string specName in product.ProductDetails.Keys)
-                                    {
-                                        worksheet.Cells[row, columns.IndexOf(specName) + 1].Value = product.ProductDetails[specName];
-                                    }
-                                    row++;
-                                }
-
-                                worksheet.Cells.AutoFitColumns();
-
-                                package.SaveAs(new FileInfo(filePath));
-                                MessageBox.Show("Excel file saved successfully.");
-                            }
-                        }
-                        catch (Exception ex)
+                    products.SelectMany(p => p.ProductDetails.Keys)
+                        .Distinct()
+                        .ToList()
+                        .ForEach(pName =>
                         {
-                            MessageBox.Show($"Error saving Excel file: {ex.Message}");
-                        }
+                            if (!columns.Contains(pName))
+                            {
+                                columns.Add(pName);
+                            }
+                        });
+
+                    for (int i = 0; i < columns.Count; i++)
+                    {
+                        worksheet.Cells[1, i + 1].Value = columns[i];
                     }
+
+                    int row = 2;
+                    foreach (var product in products)
+                    {
+                        worksheet.Cells[row, 1].Value = product.ProductName;
+                        worksheet.Cells[row, 2].Value = product.ProductLink;
+                        worksheet.Cells[row, 3].Value = product.ProductImages.Any() ? product.ProductImages.First() : "N/A";
+                        worksheet.Cells[row, 4].Value = product.DownloadImages.Any() ? product.DownloadImages.First() : "N/A";
+                        worksheet.Cells[row, 5].Value = product.ProductPrice;
+                        worksheet.Cells[row, 6].Value = product.Availability;
+                        worksheet.Cells[row, 7].Value = product.Brand;
+                        worksheet.Cells[row, 8].Value = product.Description;
+                        foreach (string specName in product.ProductDetails.Keys)
+                        {
+                            worksheet.Cells[row, columns.IndexOf(specName) + 1].Value = product.ProductDetails[specName];
+                        }
+                        row++;
+                    }
+
+                    worksheet.Cells.AutoFitColumns();
+
+                    package.SaveAs(new FileInfo(filePath));
+                    MessageBox.Show("Excel file saved successfully.");
                 }
             }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error saving Excel file: {ex.Message}");
+            }
+
         }
 
 
@@ -195,23 +196,33 @@ namespace CrawlyScraper
                         var product = new Product
                         {
                             ProductName = productName,
-                            ProductLink = productLink,                            
+                            ProductLink = productLink,
                             ProductPrice = productPrice,
                             Availability = productAvailability,
-                            Brand = productManufacturer,                            
+                            Brand = productManufacturer,
                         };
                         //product.ProductImages.Add(productImage);
                         //product.DownloadImages.Add(downloadImage);                            
                         var productsGroup = GetProductDetails(product, baseUrl, isProductsGroup);
 
-                        if(!product.ProductDetails.Any())
+                        if (!product.ProductDetails.Any())
                         {
                             product.ProductImages.Add(productImage);
                         }
-                        product.DownloadImages = product.ProductImages.Select(img => img.Replace(@"//", "https://")).ToList();
-                        product.ProductImages = product.ProductImages.Select(img => img.Replace(@"//static1.industrybuying.com/products", "catalog/default/product")).ToList();
-                        products.AddRange(productsGroup);
 
+                        productsGroup.ForEach(p => {
+
+                            p.DownloadImages = p.ProductImages.Select(img => img.Replace(@"//", "https://")).ToList();
+                            p.ProductImages = p.ProductImages.Select(img => img.Replace(@"//static1.industrybuying.com/products", "catalog/default/product")).ToList();
+                            if (!p.ProductDetails.Any())
+                            {
+                                p.ProductImages.Add(productImage);
+                                p.DownloadImages.Add(productImage);
+                            }
+                        }
+                        );
+                        products.AddRange(productsGroup);
+                        
                     }
                 }
                 else
@@ -219,7 +230,7 @@ namespace CrawlyScraper
                     products.Add(new Product
                     {
                         ProductName = "No products found.",
-                        ProductLink = "N/A",                       
+                        ProductLink = "N/A",
                         ProductPrice = "N/A",
                         Availability = "N/A",
                         Brand = "N/A"
@@ -275,8 +286,8 @@ namespace CrawlyScraper
                         subProduct.ProductName = product.ProductName;
                         subProduct.Brand = product.Brand;
                         GetProductDetails(subProduct);
-                        subProduct.ProductPrice = subProduct.PriceIncludingGST;                        
-                        if(subProduct.ProductDetails.ContainsKey("Brand Name") && product.Brand != subProduct.ProductDetails["Brand Name"].Trim())
+                        subProduct.ProductPrice = subProduct.PriceIncludingGST;
+                        if (subProduct.ProductDetails.ContainsKey("Brand Name") && product.Brand != subProduct.ProductDetails["Brand Name"].Trim())
                         {
                             subProduct.Brand = subProduct.ProductDetails["Brand Name"].Trim();
                         }
@@ -284,9 +295,9 @@ namespace CrawlyScraper
                     }
                 }
             }
-                    return subProducts;
+            return subProducts;
         }
-        
+
         private Product GetProductDetails(Product product)
         {
             HtmlWeb web = new HtmlWeb();
@@ -317,7 +328,7 @@ namespace CrawlyScraper
             // Fetch product images
             var imageNodes = document.DocumentNode.SelectNodes("//ul[@class='thumbsArea']//img");
             if (imageNodes != null)
-            {                
+            {
                 foreach (var node in imageNodes)
                 {
                     var imageUrl = node.GetAttributeValue("data-zoom-image", null);
@@ -354,7 +365,7 @@ namespace CrawlyScraper
             }
 
             rowNodes = document.DocumentNode.SelectNodes("//div[@id='productSpecifications']/div[contains(@class,'tabDetailsContainer')]//div[contains(@class,'filterRow')]");
-            
+
             if (rowNodes != null)
             {
                 foreach (var node in rowNodes)
@@ -373,7 +384,7 @@ namespace CrawlyScraper
                 }
             }
 
-            
+
             return product;
         }
 
