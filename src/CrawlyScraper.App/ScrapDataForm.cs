@@ -13,6 +13,7 @@ using System.Xml.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using HtmlDocument = HtmlAgilityPack.HtmlDocument;
+using System.Linq;
 
 
 namespace CrawlyScraper
@@ -23,9 +24,6 @@ namespace CrawlyScraper
         {
             InitializeComponent();
         }
-
-   
-      
 
         private async void btnScrapData_Click(object sender, EventArgs e)
         {
@@ -116,8 +114,8 @@ namespace CrawlyScraper
                                 {
                                     worksheet.Cells[row, 1].Value = product.ProductName;
                                     worksheet.Cells[row, 2].Value = product.ProductLink;
-                                    worksheet.Cells[row, 3].Value = product.ProductImage;
-                                    worksheet.Cells[row, 4].Value = product.DownloadImage;
+                                    worksheet.Cells[row, 3].Value = product.ProductImages.Any()? product.ProductImages.First():"N/A";
+                                    worksheet.Cells[row, 4].Value = product.DownloadImages.Any() ? product.DownloadImages.First() : "N/A";
                                     worksheet.Cells[row, 5].Value = product.ProductPrice;
                                     worksheet.Cells[row, 6].Value = product.Availability;
                                     worksheet.Cells[row, 7].Value = product.Brand;
@@ -173,11 +171,8 @@ namespace CrawlyScraper
 
                         var productImageNode = node.SelectSingleNode(".//img[@class='AH_LazyLoadImg']");
                         var productImage = productImageNode != null ? productImageNode.GetAttributeValue("data-original", "N/A") : "N/A";
+                        var downloadImage = productImage.Replace(@"//", "https://");
                         productImage = productImage.Replace(@"//static1.industrybuying.com/products", "catalog/default/product");
-
-                        var dowloadImageNode = node.SelectSingleNode(".//img[@class='AH_LazyLoadImg']");
-                        var downloadImage = dowloadImageNode != null ? dowloadImageNode.GetAttributeValue("data-original", "N/A") : "N/A";
-                        downloadImage = downloadImage.Replace(@"//", "https://");
 
                         var productPriceNode = node.SelectSingleNode(".//span[@class='rs']");
                         var productPrice = productPriceNode != null ? productPriceNode.InnerText.Trim() : "N/A";
@@ -200,15 +195,21 @@ namespace CrawlyScraper
                         var product = new Product
                         {
                             ProductName = productName,
-                            ProductLink = productLink,
-                            ProductImage = productImage,
-                            DownloadImage = downloadImage,
+                            ProductLink = productLink,                            
                             ProductPrice = productPrice,
                             Availability = productAvailability,
-                            Brand = productManufacturer
+                            Brand = productManufacturer,                            
                         };
+                        //product.ProductImages.Add(productImage);
+                        //product.DownloadImages.Add(downloadImage);                            
+                        var productsGroup = GetProductDetails(product, baseUrl, isProductsGroup);
 
-                        var productsGroup = GetProductDetails(product, isProductsGroup);
+                        if(!product.ProductDetails.Any())
+                        {
+                            product.ProductImages.Add(productImage);
+                        }
+                        product.DownloadImages = product.ProductImages.Select(img => img.Replace(@"//", "https://")).ToList();
+                        product.ProductImages = product.ProductImages.Select(img => img.Replace(@"//static1.industrybuying.com/products", "catalog/default/product")).ToList();
                         products.AddRange(productsGroup);
 
                     }
@@ -218,9 +219,7 @@ namespace CrawlyScraper
                     products.Add(new Product
                     {
                         ProductName = "No products found.",
-                        ProductLink = "N/A",
-                        ProductImage = "N/A",
-                        DownloadImage = "N/A",
+                        ProductLink = "N/A",                       
                         ProductPrice = "N/A",
                         Availability = "N/A",
                         Brand = "N/A"
@@ -236,7 +235,7 @@ namespace CrawlyScraper
             return products;
         }
 
-        private List<Product> GetProductDetails(Product product, bool isProductsGroup)
+        private List<Product> GetProductDetails(Product product, string baseUrl, bool isProductsGroup)
         {
             List<Product> products = new List<Product>();
 
@@ -248,17 +247,60 @@ namespace CrawlyScraper
             else
             {
                 //Process the page that has list of products by finding the URL of the products
-                var productDetails = GetProductDetails(product);
-                products.Add(product);
+                var productDetails = GetGroupProducts(product, baseUrl);
+                products.AddRange(productDetails);
 
             }
             return products;
         }
 
+        private IEnumerable<Product> GetGroupProducts(Product product, string baseUrl)
+        {
+            List<Product> subProducts = new List<Product>();
+            HtmlWeb web = new HtmlWeb();
+            var document = web.Load(product.ProductLink);
+            var productRefNodes = document.DocumentNode.SelectNodes("//table[@id='family-table']/tbody/tr/td[1]/a[1]/@href");
+            if (productRefNodes != null)
+            {
+                foreach (var productRef in productRefNodes)
+                {
+                    string productUrl = productRef.GetAttributeValue("href", "N/A");
+                    if (!string.IsNullOrEmpty(productUrl))
+                    {
+                        productUrl = $"{baseUrl}{productUrl.Trim()}";
+                        Product subProduct = new Product()
+                        {
+                            ProductLink = productUrl
+                        };
+                        subProduct.ProductName = product.ProductName;
+                        subProduct.Brand = product.Brand;
+                        GetProductDetails(subProduct);
+                        subProduct.ProductPrice = subProduct.PriceIncludingGST;                        
+                        if(subProduct.ProductDetails.ContainsKey("Brand Name") && product.Brand != subProduct.ProductDetails["Brand Name"].Trim())
+                        {
+                            subProduct.Brand = subProduct.ProductDetails["Brand Name"].Trim();
+                        }
+                        subProducts.Add(subProduct);
+                    }
+                }
+            }
+                    return subProducts;
+        }
+        
         private Product GetProductDetails(Product product)
         {
             HtmlWeb web = new HtmlWeb();
             var document = web.Load(product.ProductLink);
+
+            // Fetch the product title
+            var productTitleNode = document.DocumentNode.SelectSingleNode("//div[@class='heading']//span[contains(@class,'productTitle')]//h1");
+            var fetchedProductTitle = productTitleNode != null ? productTitleNode.InnerText.Trim() : "";
+
+            // Update product.ProductName if it does not match the fetched value
+            if (!string.IsNullOrEmpty(fetchedProductTitle) && product.ProductName != fetchedProductTitle)
+            {
+                product.ProductName = fetchedProductTitle;
+            }
 
             var descriptionNode = document.DocumentNode.SelectSingleNode(".//div[@class='descriptionContent']");
             product.Description = descriptionNode != null ? descriptionNode.InnerHtml.Trim() : "";
@@ -272,9 +314,47 @@ namespace CrawlyScraper
             product.ProductDetails.Add("GST Inclusive Price", gstInclusivePrice);
             product.ProductDetails.Add("GST Exclusive Price", gstExclusivePrice);
 
+            // Fetch product images
+            var imageNodes = document.DocumentNode.SelectNodes("//ul[@class='thumbsArea']//img");
+            if (imageNodes != null)
+            {                
+                foreach (var node in imageNodes)
+                {
+                    var imageUrl = node.GetAttributeValue("data-zoom-image", null);
+                    if (!string.IsNullOrEmpty(imageUrl) && imageUrl.Contains("industrybuying.com") && !product.ProductImages.Contains(imageUrl))
+                    {
+                        product.ProductImages.Add(imageUrl);
+                    }
+                }
+            }
 
-            var rowNodes = document.DocumentNode.SelectNodes("//div[@id='productSpecifications']/div[contains(@class,'tabDetailsContainer')]//div[contains(@class,'filterRow')]");
+            var rowNodes = document.DocumentNode.SelectNodes("//div[@class='features']//table//tr[not(td/@colspan)]");
+            if (rowNodes != null)
+            {
+                foreach (var node in rowNodes)
+                {
+                    // Select the first and second td elements within the current row
+                    var featureNameNode = node.SelectSingleNode(".//td[1]");
+                    var featureValueNode = node.SelectSingleNode(".//td[2]");
 
+                    // Get the text content of the td elements, or set to "N/A" if not found
+                    var featureName = featureNameNode != null ? featureNameNode.InnerText.Trim() : "N/A";
+                    var featureValue = featureValueNode != null ? featureValueNode.InnerText.Trim() : "N/A";
+
+                    // Remove leading spaces and colons from the feature value
+                    featureName = featureName.TrimEnd(' ', ':');
+                    featureValue = featureValue.TrimStart(' ', ':');
+
+                    // Add the feature name and value to the dictionary if the feature name is not "N/A" and not already present in the dictionary
+                    if (featureName != "N/A" && !product.ProductDetails.ContainsKey(featureName))
+                    {
+                        product.ProductDetails.Add(featureName, featureValue);
+                    }
+                }
+            }
+
+            rowNodes = document.DocumentNode.SelectNodes("//div[@id='productSpecifications']/div[contains(@class,'tabDetailsContainer')]//div[contains(@class,'filterRow')]");
+            
             if (rowNodes != null)
             {
                 foreach (var node in rowNodes)
@@ -286,13 +366,14 @@ namespace CrawlyScraper
                     var featureValue = featureValueNode != null ? featureValueNode.InnerText.Trim() : "N/A";
                     featureValue = featureValue.TrimStart(' ', ':');
 
-                    if (!product.ProductDetails.ContainsKey(featureName))
+                    if (featureName != "N/A" && !product.ProductDetails.ContainsKey(featureName))
                     {
                         product.ProductDetails.Add(featureName, featureValue);
                     }
                 }
             }
 
+            
             return product;
         }
 
@@ -314,16 +395,31 @@ namespace CrawlyScraper
 
         private async Task DownloadImagesAsync(List<Product> products, string targetDirectory)
         {
+            foreach (var product in products)
+            {
+                await DownloadImagesAsync(product.DownloadImages, targetDirectory);
+            }
+        }
+        private async Task DownloadImagesAsync(List<string> downloadImages, string targetDirectory)
+        {
             using (HttpClient client = new HttpClient())
             {
-                foreach (var product in products)
+                foreach (var downloadImage in downloadImages)
                 {
-                    if (!string.IsNullOrWhiteSpace(product.DownloadImage) && product.DownloadImage != "N/A")
+                    if (!string.IsNullOrWhiteSpace(downloadImage) && downloadImage != "N/A")
                     {
                         try
                         {
-                            string imageUrl = product.DownloadImage;
-                            string fileName = Path.Combine(targetDirectory, GetFileNameFromUrl(imageUrl));
+                            string imageUrl = downloadImage;
+                            string relativePath = GetRelativePathFromUrl(imageUrl);
+                            string fullPath = Path.Combine(targetDirectory, relativePath);
+
+                            // Ensure the directory exists
+                            string directoryPath = Path.GetDirectoryName(fullPath);
+                            if (!Directory.Exists(directoryPath))
+                            {
+                                Directory.CreateDirectory(directoryPath);
+                            }
 
                             using (HttpResponseMessage response = await client.GetAsync(imageUrl))
                             {
@@ -331,19 +427,60 @@ namespace CrawlyScraper
 
                                 byte[] imageBytes = await response.Content.ReadAsByteArrayAsync();
 
-                                await File.WriteAllBytesAsync(fileName, imageBytes);
-                                product.DownloadImage = fileName; // Update the product with the local file path
+                                await File.WriteAllBytesAsync(fullPath, imageBytes);
                             }
                         }
                         catch (Exception ex)
                         {
                             // Log or handle the exception appropriately
-                            MessageBox.Show($"Error downloading image {product.DownloadImage}: {ex.Message}");
+                            MessageBox.Show($"Error downloading image {downloadImage}: {ex.Message}");
                         }
                     }
                 }
             }
         }
+
+        private string GetRelativePathFromUrl(string url)
+        {
+            // This method will convert the URL to a relative path
+            Uri uri = new Uri(url);
+            string path = uri.AbsolutePath.TrimStart('/');
+            // Replace any URL-safe characters to ensure valid file paths
+            path = path.Replace('/', Path.DirectorySeparatorChar);
+            return path;
+        }
+        //private async Task DownloadImagesAsync(List<string> downloadImages, string targetDirectory)
+        //{
+        //    using (HttpClient client = new HttpClient())
+        //    {
+        //        foreach (var downloadImage in downloadImages)
+        //        {
+        //            if (!string.IsNullOrWhiteSpace(downloadImage) && downloadImage != "N/A")
+        //            {
+        //                try
+        //                {
+        //                    string imageUrl = downloadImage;
+        //                    string fileName = Path.Combine(targetDirectory, GetFileNameFromUrl(imageUrl));
+
+        //                    using (HttpResponseMessage response = await client.GetAsync(imageUrl))
+        //                    {
+        //                        response.EnsureSuccessStatusCode();
+
+        //                        byte[] imageBytes = await response.Content.ReadAsByteArrayAsync();
+
+        //                        await File.WriteAllBytesAsync(fileName, imageBytes);                                
+        //                    }
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    // Log or handle the exception appropriately
+        //                    MessageBox.Show($"Error downloading image {downloadImage}: {ex.Message}");
+        //                }
+        //            }
+        //        }
+        //    }
+        //}
+
         private string GetFileNameFromUrl(string url)
         {
             return Path.GetFileName(new Uri(url).AbsolutePath);
@@ -353,8 +490,8 @@ namespace CrawlyScraper
         {
             public string ProductName { get; set; }
             public string ProductLink { get; set; }
-            public string ProductImage { get; set; }
-            public string DownloadImage { get; set; }
+            public List<string> ProductImages { get; set; } = new List<string>();
+            public List<string> DownloadImages { get; set; } = new List<string>();
             public string ProductPrice { get; set; }
             public string PriceIncludingGST { get; set; }
             public string PriceExcludingGST { get; set; }
@@ -390,6 +527,6 @@ namespace CrawlyScraper
 
         }
 
-    
+
     }
 }
