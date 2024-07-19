@@ -240,7 +240,7 @@ namespace CrawlyScraper
             catch (Exception ex)
             {
                 // Log or handle the exception appropriately
-                MessageBox.Show($"Error crawling {url}: {ex.Message}");
+                Console.WriteLine($"Error crawling {url}: {ex.Message}");
             }
 
             return products;
@@ -268,6 +268,10 @@ namespace CrawlyScraper
         private IEnumerable<Product> GetGroupProducts(Product product, string baseUrl)
         {
             List<Product> subProducts = new List<Product>();
+            try
+            {
+
+            
             HtmlWeb web = new HtmlWeb();
             var document = web.Load(product.ProductLink);
             var productRefNodes = document.DocumentNode.SelectNodes("//table[@id='family-table']/tbody/tr/td[1]/a[1]/@href");
@@ -294,6 +298,11 @@ namespace CrawlyScraper
                         subProducts.Add(subProduct);
                     }
                 }
+            }
+            }
+            catch (Exception ex)
+            {
+              Console.WriteLine($"Error crawling {product.ProductLink}: {ex.Message}");  
             }
             return subProducts;
         }
@@ -327,6 +336,10 @@ namespace CrawlyScraper
 
             // Fetch product images
             var imageNodes = document.DocumentNode.SelectNodes("//ul[@class='thumbsArea']//img");
+            if(imageNodes == null)
+            {
+                imageNodes = document.DocumentNode.SelectNodes("//div[contains(@class,'AH_ProductDisplayImage')]//img[contains(@class,'zoom_img')]");
+            }
             if (imageNodes != null)
             {
                 foreach (var node in imageNodes)
@@ -337,6 +350,12 @@ namespace CrawlyScraper
                         product.ProductImages.Add(imageUrl);
                     }
                 }
+            }
+            
+
+            else
+            {
+
             }
 
             var rowNodes = document.DocumentNode.SelectNodes("//div[@class='features']//table//tr[not(td/@colspan)]");
