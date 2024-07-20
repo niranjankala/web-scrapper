@@ -27,32 +27,33 @@
             progressBar = new ProgressBar();
             labelBaseUrl = new Label();
             labelPages = new Label();
+            btnProcessCategories = new Button();
             SuspendLayout();
             // 
             // textBoxBaseUrl
             // 
-            textBoxBaseUrl.Location = new Point(180, 38);
-            textBoxBaseUrl.Margin = new Padding(4, 6, 4, 6);
+            textBoxBaseUrl.Location = new Point(105, 19);
+            textBoxBaseUrl.Margin = new Padding(2, 3, 2, 3);
             textBoxBaseUrl.Name = "textBoxBaseUrl";
-            textBoxBaseUrl.Size = new Size(947, 35);
+            textBoxBaseUrl.Size = new Size(554, 23);
             textBoxBaseUrl.TabIndex = 0;
             textBoxBaseUrl.Text = "https://www.industrybuying.com/agriculture-garden-landscaping-2384/harvester-2752/";
             // 
             // textBoxPages
             // 
-            textBoxPages.Location = new Point(180, 112);
-            textBoxPages.Margin = new Padding(4, 6, 4, 6);
+            textBoxPages.Location = new Point(105, 56);
+            textBoxPages.Margin = new Padding(2, 3, 2, 3);
             textBoxPages.Name = "textBoxPages";
-            textBoxPages.Size = new Size(148, 35);
+            textBoxPages.Size = new Size(88, 23);
             textBoxPages.TabIndex = 1;
             textBoxPages.Text = "4";
             // 
             // btnScrapData
             // 
-            btnScrapData.Location = new Point(180, 188);
-            btnScrapData.Margin = new Padding(4, 6, 4, 6);
+            btnScrapData.Location = new Point(105, 94);
+            btnScrapData.Margin = new Padding(2, 3, 2, 3);
             btnScrapData.Name = "btnScrapData";
-            btnScrapData.Size = new Size(150, 56);
+            btnScrapData.Size = new Size(88, 28);
             btnScrapData.TabIndex = 2;
             btnScrapData.Text = "Scrap Data";
             btnScrapData.UseVisualStyleBackColor = true;
@@ -60,48 +61,61 @@
             // 
             // progressBar
             // 
-            progressBar.Location = new Point(30, 281);
-            progressBar.Margin = new Padding(4, 6, 4, 6);
+            progressBar.Location = new Point(18, 140);
+            progressBar.Margin = new Padding(2, 3, 2, 3);
             progressBar.Name = "progressBar";
-            progressBar.Size = new Size(1097, 47);
+            progressBar.Size = new Size(640, 24);
             progressBar.TabIndex = 3;
             // 
             // labelBaseUrl
             // 
             labelBaseUrl.AutoSize = true;
-            labelBaseUrl.Location = new Point(30, 38);
-            labelBaseUrl.Margin = new Padding(4, 0, 4, 0);
+            labelBaseUrl.Location = new Point(18, 19);
+            labelBaseUrl.Margin = new Padding(2, 0, 2, 0);
             labelBaseUrl.Name = "labelBaseUrl";
-            labelBaseUrl.Size = new Size(99, 30);
+            labelBaseUrl.Size = new Size(55, 15);
             labelBaseUrl.TabIndex = 4;
             labelBaseUrl.Text = "Base URL";
             // 
             // labelPages
             // 
             labelPages.AutoSize = true;
-            labelPages.Location = new Point(30, 112);
-            labelPages.Margin = new Padding(4, 0, 4, 0);
+            labelPages.Location = new Point(18, 56);
+            labelPages.Margin = new Padding(2, 0, 2, 0);
             labelPages.Name = "labelPages";
-            labelPages.Size = new Size(67, 30);
+            labelPages.Size = new Size(38, 15);
             labelPages.TabIndex = 5;
             labelPages.Text = "Pages";
             // 
+            // btnProcessCategories
+            // 
+            btnProcessCategories.Location = new Point(537, 203);
+            btnProcessCategories.Name = "btnProcessCategories";
+            btnProcessCategories.Size = new Size(121, 23);
+            btnProcessCategories.TabIndex = 6;
+            btnProcessCategories.Text = "Process Categories";
+            btnProcessCategories.UseVisualStyleBackColor = true;
+            btnProcessCategories.Click += btnProcessCategories_Click;
+            // 
             // ScrapDataForm
             // 
-            AutoScaleDimensions = new SizeF(12F, 30F);
+            AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1153, 475);
+            ClientSize = new Size(673, 238);
+            Controls.Add(btnProcessCategories);
             Controls.Add(labelPages);
             Controls.Add(labelBaseUrl);
             Controls.Add(progressBar);
             Controls.Add(btnScrapData);
             Controls.Add(textBoxPages);
             Controls.Add(textBoxBaseUrl);
-            Margin = new Padding(4, 6, 4, 6);
+            Margin = new Padding(2, 3, 2, 3);
             Name = "ScrapDataForm";
             Text = "Scrap Data";
             ResumeLayout(false);
             PerformLayout();
         }
+
+        private Button btnProcessCategories;
     }
 }
