@@ -217,7 +217,7 @@ namespace CrawlyScraper
                             if (!p.ProductDetails.Any())
                             {
                                 p.ProductImages.Add(productImage);
-                                p.DownloadImages.Add(productImage);
+                                p.DownloadImages.Add(downloadImage);
                             }
                         }
                         );
