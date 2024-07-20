@@ -70,7 +70,7 @@ namespace CrawlyScraper
             }
             else
             {
-                //progressBar.Value = value;
+                progressBar.Value = value;
             }
         }
     }

@@ -21,12 +21,20 @@ namespace CrawlyScraper.Infrastructure.Repositories
         public async Task<List<Product>> GetProductsAsync(string url, int pages)
         {
             List<Product> products = new List<Product>();
+            var tasks = new List<Task<List<Product>>>();
             for (int i = 1; i <= pages; i++)
             {
                 string pageUrl = $"{url}?page={i}";
-                var productsOnPage = await Task.Run(() => CrawlWebsite(pageUrl));
-                products.AddRange(productsOnPage);
+                //var productsOnPage = await Task.Run(() => CrawlWebsite(pageUrl));
+                tasks.Add(Task.Run(() => CrawlWebsite(pageUrl)));                
             }
+            var results = await Task.WhenAll(tasks);
+
+            foreach (var result in results)
+            {
+                products.AddRange(result);
+            }
+
             return products;
         }
 
@@ -103,7 +111,7 @@ namespace CrawlyScraper.Infrastructure.Repositories
             };
             //product.ProductImages.Add(productImage);
             //product.DownloadImages.Add(downloadImage);                            
-            var productsGroup = GetProductDetails(product, baseUrl, isProductsGroup);            
+            var productsGroup = GetProductDetails(product, baseUrl, isProductsGroup);
 
             productsGroup.ForEach(p => {
 

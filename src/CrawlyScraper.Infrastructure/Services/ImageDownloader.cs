@@ -30,7 +30,7 @@ namespace CrawlyScraper.Infrastructure.Services
 
         private async Task DownloadImagesForProductAsync(Product product, string targetDirectory)
         {
-            foreach (var imageUrl in product.ProductImages)
+            foreach (var imageUrl in product.DownloadImages)
             {
                 if (!string.IsNullOrWhiteSpace(imageUrl) && imageUrl != "N/A")
                 {
