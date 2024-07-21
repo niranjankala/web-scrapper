@@ -14,6 +14,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 using System.Linq;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 
 namespace CrawlyScraper
@@ -59,22 +60,21 @@ namespace CrawlyScraper
             }
             else
             { return; }
+            var progress = new Progress<int>(UpdateProgressBar);
+            var progressReporter = new ProgressReporter(progress);
+            await ScrapDataAsync(baseUrl, pages, targetDirectory, filePath, progressReporter);
 
-            List<Product> products = new List<Product>();
+            //List<Product> products = await GetProductsAsync(baseUrl, pages);
+            //// Ask the user to select a directory to save images
+            //// Download images
+            //await DownloadImagesAsync(products, targetDirectory);
 
-            for (int i = 1; i <= pages; i++)
-            {
-                string url = $"{baseUrl}?page={i}";
-                var productsOnPage = await Task.Run(() => CrawlWebsite(url));
-                products.AddRange(productsOnPage);
-            }
+            //await GenerateExcelFileAsync(products, filePath);
 
-            // Ask the user to select a directory to save images
+        }
 
-            // Download images
-            await DownloadImagesAsync(products, targetDirectory);
-
-
+        private async Task GenerateExcelFileAsync(List<Product> products, string filePath)
+        {
 
             try
             {
@@ -133,16 +133,54 @@ namespace CrawlyScraper
                     worksheet.Cells.AutoFitColumns();
 
                     package.SaveAs(new FileInfo(filePath));
-                    MessageBox.Show("Excel file saved successfully.");
+                    //MessageBox.Show("Excel file saved successfully.");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error saving Excel file: {ex.Message}");
+                //MessageBox.Show($"Error saving Excel file: {ex.Message}");
             }
 
         }
 
+        public async Task ScrapDataAsync(string baseUrl, int pages, string targetDirectory, string excelFilePath, ProgressReporter progressReporter)
+        {
+
+            try
+            {
+                var products = await GetProductsAsync(baseUrl, pages);
+                progressReporter.ReportProgress(33);
+
+                await DownloadImagesAsync(products, targetDirectory);
+                progressReporter.ReportProgress(66);
+
+                await GenerateExcelFileAsync(products, excelFilePath);
+                progressReporter.ReportProgress(100);
+            }
+            catch (Exception ex)
+            {
+
+            }
+        }
+        private async Task<List<Product>> GetProductsAsync(string url, int pages)
+        {
+            List<Product> products = new List<Product>();
+            var tasks = new List<Task<List<Product>>>();
+            for (int i = 1; i <= pages; i++)
+            {
+                string pageUrl = $"{url}?page={i}";
+                //var productsOnPage = await Task.Run(() => CrawlWebsite(pageUrl));
+                tasks.Add(Task.Run(() => CrawlWebsite(pageUrl)));
+            }
+            var results = await Task.WhenAll(tasks);
+
+            foreach (var result in results)
+            {
+                products.AddRange(result);
+            }
+
+            return products;
+        }
 
         private List<Product> CrawlWebsite(string url)
         {
@@ -210,7 +248,8 @@ namespace CrawlyScraper
                             product.ProductImages.Add(productImage);
                         }
 
-                        productsGroup.ForEach(p => {
+                        productsGroup.ForEach(p =>
+                        {
 
                             p.DownloadImages = p.ProductImages.Select(img => img.Replace(@"//", "https://")).ToList();
                             p.ProductImages = p.ProductImages.Select(img => img.Replace(@"//static1.industrybuying.com/products", "catalog/default/product")).ToList();
@@ -222,7 +261,7 @@ namespace CrawlyScraper
                         }
                         );
                         products.AddRange(productsGroup);
-                        
+
                     }
                 }
                 else
@@ -271,38 +310,37 @@ namespace CrawlyScraper
             try
             {
 
-            
-            HtmlWeb web = new HtmlWeb();
-            var document = web.Load(product.ProductLink);
-            var productRefNodes = document.DocumentNode.SelectNodes("//table[@id='family-table']/tbody/tr/td[1]/a[1]/@href");
-            if (productRefNodes != null)
-            {
-                foreach (var productRef in productRefNodes)
+                HtmlWeb web = new HtmlWeb();
+                var document = web.Load(product.ProductLink);
+                var productRefNodes = document.DocumentNode.SelectNodes("//table[@id='family-table']/tbody/tr/td[1]/a[1]/@href");
+                if (productRefNodes != null)
                 {
-                    string productUrl = productRef.GetAttributeValue("href", "N/A");
-                    if (!string.IsNullOrEmpty(productUrl))
+                    foreach (var productRef in productRefNodes)
                     {
-                        productUrl = $"{baseUrl}{productUrl.Trim()}";
-                        Product subProduct = new Product()
+                        string productUrl = productRef.GetAttributeValue("href", "N/A");
+                        if (!string.IsNullOrEmpty(productUrl))
                         {
-                            ProductLink = productUrl
-                        };
-                        subProduct.ProductName = product.ProductName;
-                        subProduct.Brand = product.Brand;
-                        GetProductDetails(subProduct);
-                        subProduct.ProductPrice = subProduct.PriceIncludingGST;
-                        if (subProduct.ProductDetails.ContainsKey("Brand Name") && product.Brand != subProduct.ProductDetails["Brand Name"].Trim())
-                        {
-                            subProduct.Brand = subProduct.ProductDetails["Brand Name"].Trim();
+                            productUrl = $"{baseUrl}{productUrl.Trim()}";
+                            Product subProduct = new Product()
+                            {
+                                ProductLink = productUrl
+                            };
+                            subProduct.ProductName = product.ProductName;
+                            subProduct.Brand = product.Brand;
+                            GetProductDetails(subProduct);
+                            subProduct.ProductPrice = subProduct.PriceIncludingGST;
+                            if (subProduct.ProductDetails.ContainsKey("Brand Name") && product.Brand != subProduct.ProductDetails["Brand Name"].Trim())
+                            {
+                                subProduct.Brand = subProduct.ProductDetails["Brand Name"].Trim();
+                            }
+                            subProducts.Add(subProduct);
                         }
-                        subProducts.Add(subProduct);
                     }
                 }
             }
-            }
             catch (Exception ex)
             {
-              Console.WriteLine($"Error crawling {product.ProductLink}: {ex.Message}");  
+                Console.WriteLine($"Error crawling {product.ProductLink}: {ex.Message}");
             }
             return subProducts;
         }
@@ -336,7 +374,7 @@ namespace CrawlyScraper
 
             // Fetch product images
             var imageNodes = document.DocumentNode.SelectNodes("//ul[@class='thumbsArea']//img");
-            if(imageNodes == null)
+            if (imageNodes == null)
             {
                 imageNodes = document.DocumentNode.SelectNodes("//div[contains(@class,'AH_ProductDisplayImage')]//img[contains(@class,'zoom_img')]");
             }
@@ -351,7 +389,7 @@ namespace CrawlyScraper
                     }
                 }
             }
-            
+
 
             else
             {
@@ -425,48 +463,66 @@ namespace CrawlyScraper
 
         private async Task DownloadImagesAsync(List<Product> products, string targetDirectory)
         {
-            foreach (var product in products)
-            {
-                await DownloadImagesAsync(product.DownloadImages, targetDirectory);
-            }
+            List<string> allDownloadImages = products.SelectMany(p => p.DownloadImages)
+                                                    .Where(di => !string.IsNullOrWhiteSpace(di) && di != "N/A")
+                                                    .ToList();
+
+            await DownloadImagesParallelAsync(allDownloadImages, targetDirectory);
         }
-        private async Task DownloadImagesAsync(List<string> downloadImages, string targetDirectory)
+
+        private async Task DownloadImagesParallelAsync(List<string> downloadImages, string targetDirectory)
         {
             using (HttpClient client = new HttpClient())
             {
+                // Ensure the target directory exists
+                Directory.CreateDirectory(targetDirectory);
+
+                // Use SemaphoreSlim to control the number of concurrent HttpClient requests
+                SemaphoreSlim semaphore = new SemaphoreSlim(10); // Adjust the concurrency limit as needed
+
+                // Create tasks for downloading images
+                List<Task> downloadTasks = new List<Task>();
+
                 foreach (var downloadImage in downloadImages)
                 {
-                    if (!string.IsNullOrWhiteSpace(downloadImage) && downloadImage != "N/A")
-                    {
-                        try
-                        {
-                            string imageUrl = downloadImage;
-                            string relativePath = GetRelativePathFromUrl(imageUrl);
-                            string fullPath = Path.Combine(targetDirectory, relativePath);
-
-                            // Ensure the directory exists
-                            string directoryPath = Path.GetDirectoryName(fullPath);
-                            if (!Directory.Exists(directoryPath))
-                            {
-                                Directory.CreateDirectory(directoryPath);
-                            }
-
-                            using (HttpResponseMessage response = await client.GetAsync(imageUrl))
-                            {
-                                response.EnsureSuccessStatusCode();
-
-                                byte[] imageBytes = await response.Content.ReadAsByteArrayAsync();
-
-                                await File.WriteAllBytesAsync(fullPath, imageBytes);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            // Log or handle the exception appropriately
-                            MessageBox.Show($"Error downloading image {downloadImage}: {ex.Message}");
-                        }
-                    }
+                    await semaphore.WaitAsync(); // Wait until semaphore allows
+                    downloadTasks.Add(DownloadImageAsync(downloadImage, targetDirectory, client, semaphore));
                 }
+
+                // Wait for all download tasks to complete
+                await Task.WhenAll(downloadTasks);
+            }
+        }
+
+        private async Task DownloadImageAsync(string imageUrl, string targetDirectory, HttpClient client, SemaphoreSlim semaphore)
+        {
+            try
+            {
+                string relativePath = GetRelativePathFromUrl(imageUrl);
+                string fullPath = Path.Combine(targetDirectory, relativePath);
+
+                // Ensure the directory exists
+                string directoryPath = Path.GetDirectoryName(fullPath);
+
+                Directory.CreateDirectory(directoryPath);
+
+                using (HttpResponseMessage response = await client.GetAsync(imageUrl))
+                {
+                    response.EnsureSuccessStatusCode();
+
+                    byte[] imageBytes = await response.Content.ReadAsByteArrayAsync();
+
+                    await File.WriteAllBytesAsync(fullPath, imageBytes);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log or handle the exception appropriately
+                //MessageBox.Show($"Error downloading image {imageUrl}: {ex.Message}");
+            }
+            finally
+            {
+                semaphore.Release(); // Release semaphore after task completes
             }
         }
 
@@ -478,38 +534,7 @@ namespace CrawlyScraper
             // Replace any URL-safe characters to ensure valid file paths
             path = path.Replace('/', Path.DirectorySeparatorChar);
             return path;
-        }
-        //private async Task DownloadImagesAsync(List<string> downloadImages, string targetDirectory)
-        //{
-        //    using (HttpClient client = new HttpClient())
-        //    {
-        //        foreach (var downloadImage in downloadImages)
-        //        {
-        //            if (!string.IsNullOrWhiteSpace(downloadImage) && downloadImage != "N/A")
-        //            {
-        //                try
-        //                {
-        //                    string imageUrl = downloadImage;
-        //                    string fileName = Path.Combine(targetDirectory, GetFileNameFromUrl(imageUrl));
-
-        //                    using (HttpResponseMessage response = await client.GetAsync(imageUrl))
-        //                    {
-        //                        response.EnsureSuccessStatusCode();
-
-        //                        byte[] imageBytes = await response.Content.ReadAsByteArrayAsync();
-
-        //                        await File.WriteAllBytesAsync(fileName, imageBytes);                                
-        //                    }
-        //                }
-        //                catch (Exception ex)
-        //                {
-        //                    // Log or handle the exception appropriately
-        //                    MessageBox.Show($"Error downloading image {downloadImage}: {ex.Message}");
-        //                }
-        //            }
-        //        }
-        //    }
-        //}
+        }        
 
         private string GetFileNameFromUrl(string url)
         {
@@ -557,6 +582,140 @@ namespace CrawlyScraper
 
         }
 
+        private async void btnProcessCategories_Click(object sender, EventArgs e)
+        {
+            string websiteUrl = "https://www.industrybuying.com/";
+            string path = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            var directory = System.IO.Path.GetDirectoryName(path);
 
+            string targetDirectory = string.Empty;
+            using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
+            {
+                if (folderDialog.ShowDialog() == DialogResult.OK)
+                {
+                    targetDirectory = folderDialog.SelectedPath;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(targetDirectory))
+            {
+                string[] categoryUrls = File.ReadAllLines($"{directory}\\App_Data\\categories.txt");
+                var tasks = new List<Task>();
+
+                foreach (var item in categoryUrls)
+                {
+                    if (item.StartsWith("#"))
+                        continue;
+                    string[] lookup = item.Split('|');
+                    string parentCategoryName = lookup[0];
+                    string parentUrl = lookup[1];
+
+                    string categoryDirectory = Path.Combine(targetDirectory, parentCategoryName);
+
+                    if (!Directory.Exists(categoryDirectory))
+                    {
+                        Directory.CreateDirectory(categoryDirectory);
+                    }
+
+
+                    var childCategories = await GetChildCategoriesDetail(parentUrl);
+                    foreach (var childCategory in childCategories)
+                    {
+                        int pages = (int)Math.Ceiling(childCategory.ProductCount / 60.0);
+
+                        string filePath = Path.Combine(categoryDirectory, $"{childCategory.Name}.xlsx");
+                        var progress = new Progress<int>(UpdateProgressBar);
+                        var progressReporter = new ProgressReporter(progress);
+
+
+                        try
+                        {
+                            await ScrapDataAsync($"{websiteUrl}/{childCategory.Url}", pages, categoryDirectory, filePath, progressReporter);
+                        }
+                        catch (Exception ex)
+                        {
+                            
+                        }
+                    }
+                    
+                }
+            }
+        }
+        private async Task<List<ChildCategory>> GetChildCategoriesDetail(string parentUrl)
+        {
+            List<ChildCategory> childCategories = new List<ChildCategory>();
+
+            try
+            {
+                HtmlWeb web = new HtmlWeb();
+                var document = web.Load(parentUrl);
+
+                var categoryNodes = document.DocumentNode.SelectNodes("//div[@class='cat-colm']");
+
+                if (categoryNodes != null)
+                {
+                    foreach (var node in categoryNodes)
+                    {
+                        var nameNode = node.SelectSingleNode(".//p[@class='productTitle']/a");
+                        var urlNode = nameNode;
+                        var productCountNode = nameNode.SelectSingleNode(".//span");
+
+                        string name = nameNode?.InnerText.Split('(')[0].Trim();
+                        string url = urlNode?.GetAttributeValue("href", "").Trim();
+                        int productCount = productCountNode != null ? int.Parse(productCountNode.InnerText.Trim('(', ')', ' ')) : 0;
+
+                        if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(url))
+                        {
+                            childCategories.Add(new ChildCategory
+                            {
+                                Name = name,
+                                Url = url,
+                                ProductCount = productCount
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                //_logger.LogError(ex, $"Error fetching child categories: {ex.Message}");
+                //MessageBox.Show($"Error fetching child categories: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            return childCategories;
+        }
+
+        private void UpdateProgressBar(int value)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action<int>(UpdateProgressBar), value);
+            }
+            else
+            {
+                progressBar.Value = value;
+            }
+        }
+    }
+    public class ChildCategory
+    {
+        public string Name { get; set; }
+        public string Url { get; set; }
+        public int ProductCount { get; set; }
+    }
+
+    public class ProgressReporter
+    {
+        private readonly IProgress<int> _progress;
+
+        public ProgressReporter(IProgress<int> progress)
+        {
+            _progress = progress;
+        }
+
+        public void ReportProgress(int percentComplete)
+        {
+            _progress.Report(percentComplete);
+        }
     }
 }
