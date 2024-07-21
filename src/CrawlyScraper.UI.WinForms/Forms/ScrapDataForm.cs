@@ -103,18 +103,20 @@ namespace CrawlyScraper
                     string parentCategoryName = lookup[0];
                     string parentUrl = lookup[1];
 
-                    if (!Directory.Exists($"{targetDirectory}\\{parentCategoryName}"))
+                    string categoryDirectory = Path.Combine(targetDirectory, parentCategoryName);
+
+                    if (!Directory.Exists(categoryDirectory))
                     {
-                        Directory.CreateDirectory($"{targetDirectory}\\{parentCategoryName}");
+                        Directory.CreateDirectory(categoryDirectory);
                     }
-                    targetDirectory = Path.Combine(targetDirectory, parentCategoryName);
+                   
 
                     var childCategories = await GetChildCategoriesDetail(parentUrl);
                     foreach (var childCategory in childCategories)
                     {
                         int pages = (int)Math.Ceiling(childCategory.ProductCount / 60.0);
 
-                        string filePath = Path.Combine(targetDirectory, $"{childCategory.Name}.xlsx");
+                        string filePath = Path.Combine(categoryDirectory, $"{childCategory.Name}.xlsx");
                         var progress = new Progress<int>(UpdateProgressBar);
                         var progressReporter = new ProgressReporter(progress);
 
@@ -122,7 +124,7 @@ namespace CrawlyScraper
 
                         try
                         {
-                            await _scraperService.ScrapDataAsync($"{websiteUrl}/{childCategory.Url}", pages, targetDirectory, filePath, progressReporter);
+                            await _scraperService.ScrapDataAsync($"{websiteUrl}/{childCategory.Url}", pages, categoryDirectory, filePath, progressReporter);
                         }
                         catch (Exception ex)
                         {
