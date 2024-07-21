@@ -535,7 +535,7 @@ namespace CrawlyScraper
             // Replace any URL-safe characters to ensure valid file paths
             path = path.Replace('/', Path.DirectorySeparatorChar);
             return path;
-        }        
+        }
 
         private string GetFileNameFromUrl(string url)
         {
@@ -635,10 +635,10 @@ namespace CrawlyScraper
                         }
                         catch (Exception ex)
                         {
-                            
+
                         }
                     }
-                    
+
                 }
             }
         }
@@ -696,6 +696,11 @@ namespace CrawlyScraper
             {
                 progressBar.Value = value;
             }
+        }
+
+        private void btnMergeData_Click(object sender, EventArgs e)
+        {
+
         }
     }
     public class ChildCategory

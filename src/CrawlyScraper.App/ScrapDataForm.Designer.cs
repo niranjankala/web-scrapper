@@ -23,6 +23,7 @@
             labelPages = new Label();
             button1 = new Button();
             progressBar = new ProgressBar();
+            btnMergeData = new Button();
             SuspendLayout();
             // 
             // textBoxBaseUrl
@@ -102,11 +103,22 @@
             progressBar.Size = new Size(677, 24);
             progressBar.TabIndex = 7;
             // 
+            // btnMergeData
+            // 
+            btnMergeData.Location = new Point(12, 346);
+            btnMergeData.Name = "btnMergeData";
+            btnMergeData.Size = new Size(175, 23);
+            btnMergeData.TabIndex = 8;
+            btnMergeData.Text = "Merge";
+            btnMergeData.UseVisualStyleBackColor = true;
+            btnMergeData.Click += btnMergeData_Click;
+            // 
             // ScrapDataForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(700, 374);
+            Controls.Add(btnMergeData);
             Controls.Add(progressBar);
             Controls.Add(button1);
             Controls.Add(labelPages);
@@ -130,5 +142,6 @@
         private System.Windows.Forms.Label labelPages;
         private Button button1;
         private ProgressBar progressBar;
+        private Button btnMergeData;
     }
 }
