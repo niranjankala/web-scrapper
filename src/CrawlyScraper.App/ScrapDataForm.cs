@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 using System.Linq;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using System.Data;
 
 
 namespace CrawlyScraper
@@ -718,4 +719,5 @@ namespace CrawlyScraper
             _progress.Report(percentComplete);
         }
     }
+
 }
