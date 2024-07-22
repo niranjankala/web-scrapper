@@ -59,6 +59,7 @@
             txtCategoriesPath.Name = "txtCategoriesPath";
             txtCategoriesPath.Size = new Size(596, 35);
             txtCategoriesPath.TabIndex = 1;
+            txtCategoriesPath.Text = "G:\\My Drive\\Work\\DGIS\\Industry Cart\\categories-2024-07-22.xlsx";
             // 
             // btnBrowseCategories
             // 
@@ -87,7 +88,8 @@
             txtCategoriesFolderPath.Margin = new Padding(6, 7, 6, 7);
             txtCategoriesFolderPath.Name = "txtCategoriesFolderPath";
             txtCategoriesFolderPath.Size = new Size(596, 35);
-            txtCategoriesFolderPath.TabIndex = 4;            
+            txtCategoriesFolderPath.TabIndex = 4;
+            txtCategoriesFolderPath.Text = "G:\\My Drive\\Work\\DGIS\\Industry Cart\\industrybuying\\Categories";
             // 
             // btnBrowseFolder
             // 
@@ -117,6 +119,7 @@
             txtExportPath.Name = "txtExportPath";
             txtExportPath.Size = new Size(596, 35);
             txtExportPath.TabIndex = 7;
+            txtExportPath.Text = "G:\\My Drive\\Work\\DGIS\\Industry Cart\\industrybuying\\products.xlsx";
             // 
             // btnBrowseExport
             // 

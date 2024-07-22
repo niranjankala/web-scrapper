@@ -12,6 +12,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using LicenseContext = OfficeOpenXml.LicenseContext;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
 namespace CrawlyScraper.App
@@ -71,17 +72,17 @@ namespace CrawlyScraper.App
                 MessageBox.Show("Please fill in all the paths.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
+            var progress = new Progress<ProgressInfo>(UpdateProgressBar);
+            var progressReporter = new ProgressReporter(progress);
 
-            progressBar.Value = 0;
-            statusBar.Text = "Processing categories...";
-
+            progressReporter.ReportProgress(new ProgressInfo(0, "Processing categories..."));
             try
             {
+                progressReporter.ReportProgress(new ProgressInfo(5, "Reading categories..."));
                 var categories = await Task.Run(() => ReadCategories(categoriesPath));
-                await Task.Run(() => MergeProducts(categoriesFolderPath, exportPath, categories));
-
-                progressBar.Value = 100;
-                statusBar.Text = "Merge completed successfully.";
+                progressReporter.ReportProgress(new ProgressInfo(10, "Reading categories completed successfully."));
+                await Task.Run(() => MergeProducts(categoriesFolderPath, exportPath, categories, progressReporter));
+                progressReporter.ReportProgress(new ProgressInfo(100, "Merge completed successfully."));               
                 MessageBox.Show("Products have been successfully merged and saved.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -139,7 +140,13 @@ namespace CrawlyScraper.App
                     var product = new Dictionary<string, string>();
                     for (int col = 1; col <= colCount; col++)
                     {
-                        product[headers[col - 1]] = worksheet.Cells[row, col].Text;
+                        string cellValue = worksheet.Cells[row, col].Text;
+                        if (col == 1 && !string.IsNullOrEmpty(cellValue))
+                        {
+                            cellValue = cellValue.Replace("&amp;", "&");
+                        }
+
+                        product[headers[col - 1]] = cellValue;
                     }
                     products.Add(product);
                 }
@@ -148,38 +155,57 @@ namespace CrawlyScraper.App
             return products;
         }
 
-        private void MergeProducts(string directoryPath, string outputPath, List<Category> categories)
+        private void MergeProducts(string directoryPath, string outputPath, List<Category> categories, ProgressReporter progressReporter)
         {
             var mergedProducts = new List<Dictionary<string, string>>();
+            var parentCategories = categories.Where(c => c.ParentId == "0");
 
-            foreach (var parentCategory in categories.Select(c => c.ParentId).Distinct())
+            foreach (var parentCategory in parentCategories)
             {
-                var parentDir = Path.Combine(directoryPath, parentCategory);
+                var parentDir = Path.Combine(directoryPath, parentCategory.Name);
                 if (!Directory.Exists(parentDir))
                     continue;
-
-                foreach (var category in categories.Where(c => c.ParentId == parentCategory))
+                int categoryCounter = 1;
+                foreach (var category in categories.Where(c => c.ParentId == parentCategory.CategoryId))
                 {
-                    var childFilePath = Path.Combine(parentDir, $"{category.Name}.xlsx");
+                    var childFilePath = Path.Combine(parentDir, $"{category.Name.Trim()}.xlsx");
                     if (!File.Exists(childFilePath))
-                        continue;
+                    {
+                        childFilePath = Path.Combine(parentDir, $"{category.Name.Trim().Replace("&", "&amp;")}.xlsx");
+                        if (!File.Exists(childFilePath))
+                            continue;
+                    }
+                    
+                    
 
                     var products = ReadChildCategoryExcel(childFilePath);
 
                     foreach (var product in products)
-                    {
-                        var existingProduct = mergedProducts.FirstOrDefault(p => p["Product Name"] == product["Product Name"]);
+                    {                        
+                        var existingProduct = mergedProducts.FirstOrDefault(p => p["Product Name"] == product["Product Name"] && p["Product Link"] == product["Product Link"]);
                         if (existingProduct != null)
                         {
-                            existingProduct["Categories"] += $", {parentCategory} > {category.Name}";
+                            string[] existingCategories = existingProduct["Categories"].Split(",");
+                            if (!existingCategories.Contains($"{parentCategory.CategoryId}")) 
+                            {
+                                existingProduct["Categories"] += $",{parentCategory.CategoryId}";
+                            }
+                            if (!existingCategories.Contains($",{category.CategoryId}"))
+                            {
+                                existingProduct["Categories"] += $",{category.CategoryId}";
+                            }
                         }
                         else
                         {
-                            product["Categories"] = $"{parentCategory} > {category.Name}";
+                            product["Categories"] = $"{parentCategory.CategoryId},{category.CategoryId}";
                             mergedProducts.Add(product);
                         }
                     }
+                    var progress = 10 + (categoryCounter / parentCategories.Count()) * 70;
+                    progressReporter.ReportProgress(new ProgressInfo(progress, $"Processed Category:{category.Name}."));
                 }
+                
+
             }
 
             CreateOutputExcel(mergedProducts, outputPath);
@@ -207,6 +233,19 @@ namespace CrawlyScraper.App
                 }
 
                 package.SaveAs(new FileInfo(outputPath));
+            }
+        }
+
+        private void UpdateProgressBar(ProgressInfo progressInfo)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action<ProgressInfo>(UpdateProgressBar), progressInfo);
+            }
+            else
+            {
+                statusBar.Text += $"{progressInfo.Message}{Environment.NewLine}";
+                progressBar.Value = progressInfo.Value;
             }
         }
     }
