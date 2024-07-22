@@ -75,7 +75,7 @@ namespace CrawlyScraper
 
         }
 
-        private async Task GenerateExcelFileAsync(List<Product> products, string filePath,ProgressReporter progressReporter)
+        private async Task GenerateExcelFileAsync(List<Product> products, string filePath, ProgressReporter progressReporter)
         {
 
             try
@@ -84,10 +84,13 @@ namespace CrawlyScraper
 
                 using (ExcelPackage package = new ExcelPackage())
                 {
-                    ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("Products");
+                    ExcelWorksheet worksheetProducts = package.Workbook.Worksheets.Add("Products");
+                    ExcelWorksheet worksheetAdditionalImages = package.Workbook.Worksheets.Add("AdditionalImages");
+
 
                     List<string> columns = new List<string>
                             {
+                                "product_id",
                                 "Product Name",
                                 "Product Link",
                                 "Product Image",
@@ -97,6 +100,12 @@ namespace CrawlyScraper
                                 "Brand",
                                 "Description"
                             };
+
+                    List<string> additionImagesColumns = new List<string> {
+                        "product_id",
+                        "image",
+                        "sort_order",
+                    };
 
                     products.SelectMany(p => p.ProductDetails.Keys)
                         .Distinct()
@@ -111,29 +120,51 @@ namespace CrawlyScraper
 
                     for (int i = 0; i < columns.Count; i++)
                     {
-                        worksheet.Cells[1, i + 1].Value = columns[i];
+                        worksheetProducts.Cells[1, i + 1].Value = columns[i];
+                    }
+
+                    //
+                    for (int i = 0; i < additionImagesColumns.Count; i++)
+                    {
+                        worksheetAdditionalImages.Cells[1, i + 1].Value = additionImagesColumns[i];
                     }
 
                     int row = 2;
+                    int additionalImagesRowIndex = 2;
                     foreach (var product in products)
                     {
-                        worksheet.Cells[row, 1].Value = product.ProductName;
-                        worksheet.Cells[row, 2].Value = product.ProductLink;
-                        worksheet.Cells[row, 3].Value = product.ProductImages.Any() ? product.ProductImages.First() : "N/A";
-                        worksheet.Cells[row, 4].Value = product.DownloadImages.Any() ? product.DownloadImages.First() : "N/A";
-                        worksheet.Cells[row, 5].Value = product.ProductPrice;
-                        worksheet.Cells[row, 6].Value = product.Availability;
-                        worksheet.Cells[row, 7].Value = product.Brand;
-                        worksheet.Cells[row, 8].Value = product.Description;
+                        worksheetProducts.Cells[row, 1].Value = row-1;
+                        worksheetProducts.Cells[row, 2].Value = product.ProductName;
+                        worksheetProducts.Cells[row, 3].Value = product.ProductLink;
+                        worksheetProducts.Cells[row, 4].Value = product.ProductImages.Any() ? product.ProductImages.First() : "";
+                        worksheetProducts.Cells[row, 5].Value = product.DownloadImages.Any() ? product.DownloadImages.First() : "";
+                        worksheetProducts.Cells[row, 6].Value = product.ProductPrice;
+                        worksheetProducts.Cells[row, 7].Value = product.Availability;
+                        worksheetProducts.Cells[row, 8].Value = product.Brand;
+                        worksheetProducts.Cells[row, 9].Value = product.Description;
                         foreach (string specName in product.ProductDetails.Keys)
                         {
-                            worksheet.Cells[row, columns.IndexOf(specName) + 1].Value = product.ProductDetails[specName];
+                            worksheetProducts.Cells[row, columns.IndexOf(specName) + 1].Value = product.ProductDetails[specName];
+                        }
+
+                        
+                        if (product.DownloadImages.Count > 1)
+                        {
+                            int order = 1;
+                            foreach (var image in product.DownloadImages.Skip(1))
+                            {
+                                worksheetAdditionalImages.Cells[additionalImagesRowIndex, 1].Value = row - 1;
+                                worksheetAdditionalImages.Cells[additionalImagesRowIndex, 2].Value = image;
+                                worksheetAdditionalImages.Cells[additionalImagesRowIndex, 3].Value = order;
+                                additionalImagesRowIndex++;
+                                order++;
+                            }
                         }
                         row++;
                     }
 
-                    worksheet.Cells.AutoFitColumns();
-
+                    worksheetProducts.Cells.AutoFitColumns();
+                    worksheetAdditionalImages.Cells.AutoFitColumns();
                     package.SaveAs(new FileInfo(filePath));
                     //MessageBox.Show("Excel file saved successfully.");
                 }
@@ -150,12 +181,12 @@ namespace CrawlyScraper
 
             try
             {
-                progressReporter.ReportProgress(new ProgressInfo() { Value = 0, Message= $"Started crawling {baseUrl} with pages {pages}" });
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 0, Message = $"Started crawling {baseUrl} with pages {pages}" });
                 var products = await GetProductsAsync(baseUrl, pages, progressReporter);
-                progressReporter.ReportProgress(new ProgressInfo() { Value = 33, Message= $"Fetched products for {baseUrl}" });
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 33, Message = $"Fetched products for {baseUrl}" });
 
                 await DownloadImagesAsync(products, targetDirectory, progressReporter);
-                progressReporter.ReportProgress(new ProgressInfo() { Value = 66, Message = $"Product images download completed for {baseUrl}" });      
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 66, Message = $"Product images download completed for {baseUrl}" });
 
                 await GenerateExcelFileAsync(products, excelFilePath, progressReporter);
                 progressReporter.ReportProgress(new ProgressInfo() { Value = 100, Message = $"Excel file generated for {baseUrl}" });
@@ -169,7 +200,7 @@ namespace CrawlyScraper
         private async Task<List<Product>> GetProductsAsync(string url, int pages, ProgressReporter progressReporter)
         {
             List<Product> products = new List<Product>();
-            var tasks = new List<Task<List<Product>>>();            
+            var tasks = new List<Task<List<Product>>>();
             int pageProgress = 0;
             for (int i = 1; i <= pages; i++)
             {
@@ -188,7 +219,7 @@ namespace CrawlyScraper
             return products;
         }
 
-        
+
 
         private List<Product> CrawlWebsite(string url, ProgressReporter progressReporter, int pageProgress)
         {
@@ -289,7 +320,7 @@ namespace CrawlyScraper
                 // Log or handle the exception appropriately
                 Console.WriteLine($"Error crawling {url}: {ex.Message}");
             }
-            finally 
+            finally
             {
                 progressReporter.ReportProgress(new ProgressInfo() { Value = pageProgress });
             }
@@ -478,6 +509,15 @@ namespace CrawlyScraper
             List<string> allDownloadImages = products.SelectMany(p => p.DownloadImages)
                                                     .Where(di => !string.IsNullOrWhiteSpace(di) && di != "N/A")
                                                     .ToList();
+
+            //Remove all already downloaded files
+            allDownloadImages.RemoveAll(imageUrl =>
+            {
+                string relativePath = GetRelativePathFromUrl(imageUrl);
+                string fullPath = Path.Combine(targetDirectory, relativePath);
+
+                return File.Exists(fullPath);
+            });
 
             await DownloadImagesParallelAsync(allDownloadImages, targetDirectory, progressReporter);
         }
