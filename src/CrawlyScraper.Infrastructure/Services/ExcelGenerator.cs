@@ -27,18 +27,27 @@ namespace CrawlyScraper.Infrastructure.Services
                     ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("Products");
 
                     List<string> columns = new List<string>
-                    {
-                        "Product Name",
-                        "Product Link",
-                        "Product Image",
-                        "Product Price",
-                        "Availability",
-                        "Brand"
-                    };
+                            {
+                                "Product Name",
+                                "Product Link",
+                                "Product Image",
+                                "Download Image",
+                                "Product Price",
+                                "Availability",
+                                "Brand",
+                                "Description"
+                            };
 
-                    // Add dynamic columns for product details
-                    var allProductDetails = products.SelectMany(p => p.ProductDetails.Keys).Distinct().ToList();
-                    columns.AddRange(allProductDetails);
+                    products.SelectMany(p => p.ProductDetails.Keys)
+                        .Distinct()
+                        .ToList()
+                        .ForEach(pName =>
+                        {
+                            if (!columns.Contains(pName))
+                            {
+                                columns.Add(pName);
+                            }
+                        });
 
                     // Write headers
                     for (int i = 0; i < columns.Count; i++)
@@ -47,24 +56,22 @@ namespace CrawlyScraper.Infrastructure.Services
                     }
 
                     // Write data
-                    for (int i = 0; i < products.Count; i++)
+                    int row = 2;
+                    foreach (var product in products)
                     {
-                        var product = products[i];
-                        int row = i + 2;
-
                         worksheet.Cells[row, 1].Value = product.ProductName;
                         worksheet.Cells[row, 2].Value = product.ProductLink;
-                        worksheet.Cells[row, 3].Value = product.ProductImages.FirstOrDefault() ?? "N/A";
-                        worksheet.Cells[row, 4].Value = product.ProductPrice;
-                        worksheet.Cells[row, 5].Value = product.Availability;
-                        worksheet.Cells[row, 6].Value = product.Brand;
-
-                        // Write dynamic product details
-                        for (int j = 0; j < allProductDetails.Count; j++)
+                        worksheet.Cells[row, 3].Value = product.ProductImages.Any() ? product.ProductImages.First() : "N/A";
+                        worksheet.Cells[row, 4].Value = product.DownloadImages.Any() ? product.DownloadImages.First() : "N/A";
+                        worksheet.Cells[row, 5].Value = product.ProductPrice;
+                        worksheet.Cells[row, 6].Value = product.Availability;
+                        worksheet.Cells[row, 7].Value = product.Brand;
+                        worksheet.Cells[row, 8].Value = product.Description;
+                        foreach (string specName in product.ProductDetails.Keys)
                         {
-                            string detailKey = allProductDetails[j];
-                            worksheet.Cells[row, j + 7].Value = product.ProductDetails.TryGetValue(detailKey, out string detailValue) ? detailValue : "";
+                            worksheet.Cells[row, columns.IndexOf(specName) + 1].Value = product.ProductDetails[specName];
                         }
+                        row++;
                     }
 
                     worksheet.Cells.AutoFitColumns();
