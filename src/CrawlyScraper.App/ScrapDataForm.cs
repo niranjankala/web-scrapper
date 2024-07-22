@@ -71,7 +71,7 @@ namespace CrawlyScraper
             //// Download images
             //await DownloadImagesAsync(products, targetDirectory);
 
-            //await GenerateExcelFileAsync(products, filePath);
+            //await GenerateExcelFileAsync(products, categoriesFilePath);
 
         }
 
@@ -595,11 +595,6 @@ namespace CrawlyScraper
             public string AutomationGrade { get; set; }
             public string NameofManufacturer_Packer_Importer { get; set; }
 
-
-
-
-
-
         }
 
         private async void btnProcessCategories_Click(object sender, EventArgs e)
@@ -720,7 +715,9 @@ namespace CrawlyScraper
 
         private void btnMergeData_Click(object sender, EventArgs e)
         {
-
+            MergeDataForm form = new MergeDataForm();
+            form.StartPosition = FormStartPosition.CenterParent;
+            form.ShowDialog();
         }
     }
     public class ChildCategory
