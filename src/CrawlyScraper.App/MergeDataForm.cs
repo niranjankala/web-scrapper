@@ -12,7 +12,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using LicenseContext = OfficeOpenXml.LicenseContext;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using System.Diagnostics;
+using System.Reflection;
+using Microsoft.FSharp.Data.UnitSystems.SI.UnitNames;
+using OfficeOpenXml.Packaging.Ionic.Zlib;
 
 
 namespace CrawlyScraper.App
@@ -216,28 +221,55 @@ namespace CrawlyScraper.App
             using (var package = new ExcelPackage())
             {
                 var worksheet = package.Workbook.Worksheets.Add("Products");
-                var headers = products.First().Keys.ToList();
-
-                for (int i = 0; i < headers.Count; i++)
+				//var headers = products.First().Keys.ToList();
+				//var headers =  new List<string>()
+				//{
+    //                "product_id", "name(en-gb)", "categories", "sku", "upc", "ean", "jan", "isbn", "mpn", "location", "quantity", "model", "manufacturer", "image_name", "shipping", "price", "points", "date_added", "date_modified", "date_available", "weight", "weight_unit", "length", "width", "height", "length_unit", "status", "tax_class_id", "description(en-gb)", "meta_title(en-gb)", "meta_description(en-gb)", "meta_keywords(en-gb)", "stock_status_id", "store_ids", "layout", "related_ids", "tags(en-gb)", "sort_order", "subtract", "minimum"
+				//};
+                Dictionary<string, string> columnMapping = new Dictionary<string, string>()
                 {
-                    worksheet.Cells[1, i + 1].Value = headers[i];
-                }
+                    { "name(en-gb)", "Product Name"}
+                };
+                var headers = columnMapping.Keys.ToList();
 
-                for (int i = 0; i < products.Count; i++)
-                {
-                    var product = products[i];
+				for (int i = 0; i < headers.Count; i++)
+				{
+					worksheet.Cells[1, i + 1].Value = headers[i];
+				}
+				for (int i = 0; i < products.Count; i++)
+				{
+					var product = products[i];
                     for (int j = 0; j < headers.Count; j++)
                     {
-                        worksheet.Cells[i + 2, j + 1].Value = product[headers[j]];
-                    }
-                }
-
-                package.SaveAs(new FileInfo(outputPath));
-            }
-        }
-
-        private void UpdateProgressBar(ProgressInfo progressInfo)
-        {
+						worksheet.Cells[i + 2, j+1].Value = columnMapping.ContainsKey(headers[j])? product[headers[j]]:"";
+					}
+						//worksheet.Cells[i + 2, 1].Value = product["Product Name"];
+						//worksheet.Cells[i + 2, 2].Value = product["Product Image"];
+						//worksheet.Cells[i + 2, 3].Value = product["Product Price"];
+						//worksheet.Cells[i + 2, 1].Value = product["Availability"];
+						//worksheet.Cells[i + 2, 1].Value = product["Brand"];
+						//worksheet.Cells[i + 2, 1].Value = product["GST Inclusive Price"];
+						//worksheet.Cells[i + 2, 1].Value = product["GST Exclusive Price"];
+						//worksheet.Cells[i + 2, 1].Value = product["Brand Name"];
+						//worksheet.Cells[i + 2, 1].Value = product["Model No"];
+						//worksheet.Cells[i + 2, 1].Value = product["Type of Product"];
+						//worksheet.Cells[i + 2, 1].Value = product["Thickness"];
+						//worksheet.Cells[i + 2, 1].Value = product["Open Height"];
+						//worksheet.Cells[i + 2, 1].Value = product["Ladder Width"];
+						//worksheet.Cells[i + 2, 1].Value = product["More Details"];
+						//worksheet.Cells[i + 2, 1].Value = product["SKU"];
+						//worksheet.Cells[i + 2, 1].Value = product["No. of Steps"];
+						//worksheet.Cells[i + 2, 1].Value = product["Material"];
+						//worksheet.Cells[i + 2, 1].Value = product["Net Weight"];
+						//worksheet.Cells[i + 2, 1].Value = product["Folded Height"];
+						//worksheet.Cells[i + 2, 1].Value = product["Categories"];
+					
+				}
+				package.SaveAs(new FileInfo(outputPath));
+			}
+		}
+		private void UpdateProgressBar(ProgressInfo progressInfo)
+		{
             if (InvokeRequired)
             {
                 Invoke(new Action<ProgressInfo>(UpdateProgressBar), progressInfo);
