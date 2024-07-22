@@ -16,6 +16,7 @@ using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 using System.Linq;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using System.Data;
+using CrawlyScraper.App;
 
 
 namespace CrawlyScraper
@@ -61,7 +62,7 @@ namespace CrawlyScraper
             }
             else
             { return; }
-            var progress = new Progress<int>(UpdateProgressBar);
+            var progress = new Progress<ProgressInfo>(UpdateProgressBar);
             var progressReporter = new ProgressReporter(progress);
             await ScrapDataAsync(baseUrl, pages, targetDirectory, filePath, progressReporter);
 
@@ -74,7 +75,7 @@ namespace CrawlyScraper
 
         }
 
-        private async Task GenerateExcelFileAsync(List<Product> products, string filePath)
+        private async Task GenerateExcelFileAsync(List<Product> products, string filePath,ProgressReporter progressReporter)
         {
 
             try
@@ -149,29 +150,33 @@ namespace CrawlyScraper
 
             try
             {
-                var products = await GetProductsAsync(baseUrl, pages);
-                progressReporter.ReportProgress(33);
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 0, Message= $"Started crawling {baseUrl} with pages {pages}" });
+                var products = await GetProductsAsync(baseUrl, pages, progressReporter);
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 33, Message= $"Fetched products for {baseUrl}" });
 
-                await DownloadImagesAsync(products, targetDirectory);
-                progressReporter.ReportProgress(66);
+                await DownloadImagesAsync(products, targetDirectory, progressReporter);
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 66, Message = $"Product images download completed for {baseUrl}" });      
 
-                await GenerateExcelFileAsync(products, excelFilePath);
-                progressReporter.ReportProgress(100);
+                await GenerateExcelFileAsync(products, excelFilePath, progressReporter);
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 100, Message = $"Excel file generated for {baseUrl}" });
+
             }
             catch (Exception ex)
             {
 
             }
         }
-        private async Task<List<Product>> GetProductsAsync(string url, int pages)
+        private async Task<List<Product>> GetProductsAsync(string url, int pages, ProgressReporter progressReporter)
         {
             List<Product> products = new List<Product>();
-            var tasks = new List<Task<List<Product>>>();
+            var tasks = new List<Task<List<Product>>>();            
+            int pageProgress = 0;
             for (int i = 1; i <= pages; i++)
             {
                 string pageUrl = $"{url}?page={i}";
+                pageProgress = (i / pages) * 33;
                 //var productsOnPage = await Task.Run(() => CrawlWebsite(pageUrl));
-                tasks.Add(Task.Run(() => CrawlWebsite(pageUrl)));
+                tasks.Add(Task.Run(() => CrawlWebsite(pageUrl, progressReporter, pageProgress)));
             }
             var results = await Task.WhenAll(tasks);
 
@@ -183,7 +188,9 @@ namespace CrawlyScraper
             return products;
         }
 
-        private List<Product> CrawlWebsite(string url)
+        
+
+        private List<Product> CrawlWebsite(string url, ProgressReporter progressReporter, int pageProgress)
         {
             List<Product> products = new List<Product>();
             try
@@ -281,6 +288,10 @@ namespace CrawlyScraper
             {
                 // Log or handle the exception appropriately
                 Console.WriteLine($"Error crawling {url}: {ex.Message}");
+            }
+            finally 
+            {
+                progressReporter.ReportProgress(new ProgressInfo() { Value = pageProgress });
             }
 
             return products;
@@ -462,17 +473,19 @@ namespace CrawlyScraper
         }
 
 
-        private async Task DownloadImagesAsync(List<Product> products, string targetDirectory)
+        private async Task DownloadImagesAsync(List<Product> products, string targetDirectory, ProgressReporter progressReporter)
         {
             List<string> allDownloadImages = products.SelectMany(p => p.DownloadImages)
                                                     .Where(di => !string.IsNullOrWhiteSpace(di) && di != "N/A")
                                                     .ToList();
 
-            await DownloadImagesParallelAsync(allDownloadImages, targetDirectory);
+            await DownloadImagesParallelAsync(allDownloadImages, targetDirectory, progressReporter);
         }
 
-        private async Task DownloadImagesParallelAsync(List<string> downloadImages, string targetDirectory)
+        private async Task DownloadImagesParallelAsync(List<string> downloadImages, string targetDirectory, ProgressReporter progressReporter)
         {
+            int totalImages = downloadImages.Count;
+            int completedImages = 0;
             using (HttpClient client = new HttpClient())
             {
                 // Ensure the target directory exists
@@ -487,7 +500,13 @@ namespace CrawlyScraper
                 foreach (var downloadImage in downloadImages)
                 {
                     await semaphore.WaitAsync(); // Wait until semaphore allows
-                    downloadTasks.Add(DownloadImageAsync(downloadImage, targetDirectory, client, semaphore));
+                    downloadTasks.Add(DownloadImageAsync(downloadImage, targetDirectory, client, semaphore)
+                       .ContinueWith(_ =>
+                       {
+                           completedImages++;
+                           int progressValue = 66 + (int)((completedImages / (double)totalImages) * 33);
+                           progressReporter.ReportProgress(new ProgressInfo { Value = progressValue, Message = $"Downloaded {completedImages} of {totalImages} images." });
+                       }));
                 }
 
                 // Wait for all download tasks to complete
@@ -625,7 +644,7 @@ namespace CrawlyScraper
                         int pages = (int)Math.Ceiling(childCategory.ProductCount / 60.0);
 
                         string filePath = Path.Combine(categoryDirectory, $"{childCategory.Name}.xlsx");
-                        var progress = new Progress<int>(UpdateProgressBar);
+                        var progress = new Progress<ProgressInfo>(UpdateProgressBar);
                         var progressReporter = new ProgressReporter(progress);
 
 
@@ -686,15 +705,16 @@ namespace CrawlyScraper
             return childCategories;
         }
 
-        private void UpdateProgressBar(int value)
+        private void UpdateProgressBar(ProgressInfo progressInfo)
         {
             if (InvokeRequired)
             {
-                Invoke(new Action<int>(UpdateProgressBar), value);
+                Invoke(new Action<ProgressInfo>(UpdateProgressBar), progressInfo);
             }
             else
             {
-                progressBar.Value = value;
+                textBoxContent.Text += $"{progressInfo.Message}{Environment.NewLine}";
+                progressBar.Value = progressInfo.Value;
             }
         }
 
@@ -712,16 +732,16 @@ namespace CrawlyScraper
 
     public class ProgressReporter
     {
-        private readonly IProgress<int> _progress;
+        private readonly IProgress<ProgressInfo> _progress;
 
-        public ProgressReporter(IProgress<int> progress)
+        public ProgressReporter(IProgress<ProgressInfo> progress)
         {
             _progress = progress;
         }
 
-        public void ReportProgress(int percentComplete)
+        public void ReportProgress(ProgressInfo progress)
         {
-            _progress.Report(percentComplete);
+            _progress.Report(progress);
         }
     }
 
