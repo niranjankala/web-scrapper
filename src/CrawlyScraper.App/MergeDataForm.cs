@@ -187,7 +187,7 @@ namespace CrawlyScraper.App
 
                     foreach (var product in products)
                     {                        
-                        var existingProduct = mergedProducts.FirstOrDefault(p => p["Product Name"] == product["Product Name"] && p["Product Link"] == product["Product Link"]);
+                        var existingProduct = mergedProducts.FirstOrDefault(p => p[""] == product[""] && p["Product Link"] == product["Product Link"]);
                         if (existingProduct != null)
                         {
                             string[] existingCategories = existingProduct["Categories"].Split(",");
@@ -228,8 +228,23 @@ namespace CrawlyScraper.App
 				//};
                 Dictionary<string, string> columnMapping = new Dictionary<string, string>()
                 {
-                    { "name(en-gb)", "Product Name"}
-                };
+                    { "name(en-gb)", "Product Name"}, { "categories", "Categories"},               
+                    { "sku", "SKU"}, { "upc", ""},
+                    { "ean", ""},  { "jan", ""},               
+                    { "isbn", ""}, { "mpn", ""},               
+                    { "location", ""}, { "quantity", ""},
+                    { "model", "Model No"}, { "manufacturer", ""}, 
+                    { "image_name", "Product Image"}, { "shipping", ""},
+                    { "price", "Product Price"}, { "points", ""},
+                    { "date_added", ""}, { "status", ""},
+                    { "tax_class_id", ""}, { "description(en-gb)", ""},
+                    { "meta_title(en-gb)", ""}, { "meta_description(en-gb)", ""},
+                    { "meta_keywords(en-gb)", ""}, { "stock_status_id", ""},
+                    { "store_ids", ""}, { "layout", ""},
+                    { "related_ids", ""}, { "tags(en-gb)", ""},
+                    { "sort_order", ""}, { "subtract", ""},
+                    { "minimum", ""}
+				};
                 var headers = columnMapping.Keys.ToList();
 
 				for (int i = 0; i < headers.Count; i++)
@@ -243,27 +258,27 @@ namespace CrawlyScraper.App
                     {
 						worksheet.Cells[i + 2, j+1].Value = columnMapping.ContainsKey(headers[j])? product[headers[j]]:"";
 					}
-						//worksheet.Cells[i + 2, 1].Value = product["Product Name"];
-						//worksheet.Cells[i + 2, 2].Value = product["Product Image"];
-						//worksheet.Cells[i + 2, 3].Value = product["Product Price"];
-						//worksheet.Cells[i + 2, 1].Value = product["Availability"];
-						//worksheet.Cells[i + 2, 1].Value = product["Brand"];
-						//worksheet.Cells[i + 2, 1].Value = product["GST Inclusive Price"];
-						//worksheet.Cells[i + 2, 1].Value = product["GST Exclusive Price"];
-						//worksheet.Cells[i + 2, 1].Value = product["Brand Name"];
-						//worksheet.Cells[i + 2, 1].Value = product["Model No"];
-						//worksheet.Cells[i + 2, 1].Value = product["Type of Product"];
-						//worksheet.Cells[i + 2, 1].Value = product["Thickness"];
-						//worksheet.Cells[i + 2, 1].Value = product["Open Height"];
-						//worksheet.Cells[i + 2, 1].Value = product["Ladder Width"];
-						//worksheet.Cells[i + 2, 1].Value = product["More Details"];
-						//worksheet.Cells[i + 2, 1].Value = product["SKU"];
-						//worksheet.Cells[i + 2, 1].Value = product["No. of Steps"];
-						//worksheet.Cells[i + 2, 1].Value = product["Material"];
-						//worksheet.Cells[i + 2, 1].Value = product["Net Weight"];
-						//worksheet.Cells[i + 2, 1].Value = product["Folded Height"];
-						//worksheet.Cells[i + 2, 1].Value = product["Categories"];
-					
+					//worksheet.Cells[i + 2, 1].Value = product["Product Name"];
+					//worksheet.Cells[i + 2, 2].Value = product["Product Image"];
+					//worksheet.Cells[i + 2, 3].Value = product["Product Price"];
+					//worksheet.Cells[i + 2, 1].Value = product["Availability"];
+					//worksheet.Cells[i + 2, 1].Value = product["Brand"];
+					//worksheet.Cells[i + 2, 1].Value = product["GST Inclusive Price"];
+					//worksheet.Cells[i + 2, 1].Value = product["GST Exclusive Price"];
+					//worksheet.Cells[i + 2, 1].Value = product["Brand Name"];
+					//worksheet.Cells[i + 2, 1].Value = product["Model No"];
+					//worksheet.Cells[i + 2, 1].Value = product["Type of Product"];
+					//worksheet.Cells[i + 2, 1].Value = product["Thickness"];
+					//worksheet.Cells[i + 2, 1].Value = product["Open Height"];
+					//worksheet.Cells[i + 2, 1].Value = product["Ladder Width"];
+					//worksheet.Cells[i + 2, 1].Value = product["More Details"];
+					//worksheet.Cells[i + 2, 1].Value = product["SKU"];
+					//worksheet.Cells[i + 2, 1].Value = product["No. of Steps"];
+					//worksheet.Cells[i + 2, 1].Value = product["Material"];
+					//worksheet.Cells[i + 2, 1].Value = product["Net Weight"];
+					//worksheet.Cells[i + 2, 1].Value = product["Folded Height"];
+					//worksheet.Cells[i + 2, 1].Value = product["Categories"];
+
 				}
 				package.SaveAs(new FileInfo(outputPath));
 			}
