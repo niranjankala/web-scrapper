@@ -23,6 +23,7 @@ namespace CrawlyScraper
 {
     public partial class ScrapDataForm : Form
     {
+        private const int RetryCount = 5;
         public ScrapDataForm()
         {
             InitializeComponent();
@@ -148,10 +149,10 @@ namespace CrawlyScraper
                         }
 
                         
-                        if (product.DownloadImages.Count > 1)
+                        if (product.ProductImages.Count > 1)
                         {
                             int order = 1;
-                            foreach (var image in product.DownloadImages.Skip(1))
+                            foreach (var image in product.ProductImages.Skip(1))
                             {
                                 worksheetAdditionalImages.Cells[additionalImagesRowIndex, 1].Value = row - 1;
                                 worksheetAdditionalImages.Cells[additionalImagesRowIndex, 2].Value = image;
@@ -197,18 +198,40 @@ namespace CrawlyScraper
 
             }
         }
+
+        private async Task<List<Product>> ScrapCategoryDataAsync(string baseUrl, int pages, string targetDirectory, string excelFilePath, ProgressReporter progressReporter)
+        {
+            List<Product> products = new List<Product>();
+            try
+            {
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 0, Message = $"Started crawling {baseUrl} with pages {pages}" });
+                products = await GetProductsAsync(baseUrl, pages, progressReporter);
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 33, Message = $"Fetched products for {baseUrl}" });
+
+                await GenerateExcelFileAsync(products, excelFilePath, progressReporter);
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 66, Message = $"Excel file generated for {baseUrl}" });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+            return products;
+        }
+
         private async Task<List<Product>> GetProductsAsync(string url, int pages, ProgressReporter progressReporter)
         {
             List<Product> products = new List<Product>();
             var tasks = new List<Task<List<Product>>>();
             int pageProgress = 0;
+
             for (int i = 1; i <= pages; i++)
             {
                 string pageUrl = $"{url}?page={i}";
                 pageProgress = (i / pages) * 33;
-                //var productsOnPage = await Task.Run(() => CrawlWebsite(pageUrl));
+
                 tasks.Add(Task.Run(() => CrawlWebsite(pageUrl, progressReporter, pageProgress)));
             }
+
             var results = await Task.WhenAll(tasks);
 
             foreach (var result in results)
@@ -227,9 +250,8 @@ namespace CrawlyScraper
             try
             {
                 Uri uri = new Uri(url);
-                string baseUrl = $"{uri.Scheme}://{uri.Host}";
-                HtmlWeb web = new HtmlWeb();
-                var document = web.Load(url);
+                string baseUrl = $"{uri.Scheme}://{uri.Host}";                
+                var document = GetHtmlDocument(url, 1);
 
                 var productNodes = document.DocumentNode.SelectNodes("//div[@class='AH_ProductView col-lg-3 col-md-3 col-sm-6 col-xs-6 productThumbnails']");
                 if (productNodes != null)
@@ -302,18 +324,7 @@ namespace CrawlyScraper
                         products.AddRange(productsGroup);
 
                     }
-                }
-                else
-                {
-                    products.Add(new Product
-                    {
-                        ProductName = "No products found.",
-                        ProductLink = "N/A",
-                        ProductPrice = "N/A",
-                        Availability = "N/A",
-                        Brand = "N/A"
-                    });
-                }
+                }              
             }
             catch (Exception ex)
             {
@@ -351,10 +362,9 @@ namespace CrawlyScraper
         {
             List<Product> subProducts = new List<Product>();
             try
-            {
+            {   
+                var document =GetHtmlDocument(product.ProductLink, 1);
 
-                HtmlWeb web = new HtmlWeb();
-                var document = web.Load(product.ProductLink);
                 var productRefNodes = document.DocumentNode.SelectNodes("//table[@id='family-table']/tbody/tr/td[1]/a[1]/@href");
                 if (productRefNodes != null)
                 {
@@ -388,10 +398,33 @@ namespace CrawlyScraper
             return subProducts;
         }
 
-        private Product GetProductDetails(Product product)
+
+        private HtmlDocument GetHtmlDocument(string url, int recursion)
         {
-            HtmlWeb web = new HtmlWeb();
-            var document = web.Load(product.ProductLink);
+            try
+            {
+                HtmlDocument document = null;
+                if (recursion <= RetryCount)
+                {
+                    HtmlWeb web = new HtmlWeb();
+                    document = web.Load(url);
+                }
+                return document;
+            }
+            catch (Exception ex)
+            {
+                if (recursion < RetryCount)
+                {
+                    System.Threading.Thread.Sleep(1000);
+                    return GetHtmlDocument(url, recursion + 1);
+                }
+                throw;
+            }
+        }
+
+        private Product GetProductDetails(Product product)
+        {           
+            var document = GetHtmlDocument(product.ProductLink, 1);
 
             // Fetch the product title
             var productTitleNode = document.DocumentNode.SelectSingleNode("//div[@class='heading']//span[contains(@class,'productTitle')]//h1");
@@ -509,6 +542,8 @@ namespace CrawlyScraper
             List<string> allDownloadImages = products.SelectMany(p => p.DownloadImages)
                                                     .Where(di => !string.IsNullOrWhiteSpace(di) && di != "N/A")
                                                     .ToList();
+
+            allDownloadImages = allDownloadImages.GroupBy(imgUrl => imgUrl).Select(urlGrp => urlGrp.Key).ToList();
 
             //Remove all already downloaded files
             allDownloadImages.RemoveAll(imageUrl =>
@@ -639,7 +674,7 @@ namespace CrawlyScraper
 
         private async void btnProcessCategories_Click(object sender, EventArgs e)
         {
-            string websiteUrl = "https://www.industrybuying.com/";
+            string websiteUrl = "https://www.industrybuying.com";
             string path = System.Reflection.Assembly.GetExecutingAssembly().Location;
             var directory = System.IO.Path.GetDirectoryName(path);
 
@@ -655,7 +690,9 @@ namespace CrawlyScraper
             if (!string.IsNullOrEmpty(targetDirectory))
             {
                 string[] categoryUrls = File.ReadAllLines($"{directory}\\App_Data\\categories.txt");
-                var tasks = new List<Task>();
+                List<Product> products = new List<Product>();
+                var progress = new Progress<ProgressInfo>(UpdateProgressBar);
+                var progressReporter = new ProgressReporter(progress);               
 
                 foreach (var item in categoryUrls)
                 {
@@ -672,38 +709,41 @@ namespace CrawlyScraper
                         Directory.CreateDirectory(categoryDirectory);
                     }
 
-
                     var childCategories = await GetChildCategoriesDetail(parentUrl);
                     foreach (var childCategory in childCategories)
                     {
                         int pages = (int)Math.Ceiling(childCategory.ProductCount / 60.0);
-
                         string filePath = Path.Combine(categoryDirectory, $"{childCategory.Name}.xlsx");
-                        var progress = new Progress<ProgressInfo>(UpdateProgressBar);
-                        var progressReporter = new ProgressReporter(progress);
-
-
                         try
                         {
-                            await ScrapDataAsync($"{websiteUrl}/{childCategory.Url}", pages, categoryDirectory, filePath, progressReporter);
+                            products.AddRange(await ScrapCategoryDataAsync($"{websiteUrl}{childCategory.Url}", pages, categoryDirectory, filePath, progressReporter));
                         }
                         catch (Exception ex)
                         {
-
+                            Console.WriteLine($"Error: {ex.Message}");
                         }
                     }
-
                 }
+               
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 66, Message = $"Downloading product images..." });
+
+                // Write All Images URL to file
+                StringBuilder sb = new StringBuilder();
+                products.SelectMany(p => p.DownloadImages).ToList().ForEach(p => sb.AppendLine($"{p}{Environment.NewLine}"));
+                File.WriteAllText(Path.Join(targetDirectory, "ProductImages.txt"), sb.ToString());
+                await DownloadImagesAsync(products, targetDirectory, progressReporter);
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 100, Message = $"Product images download completed" });
             }
         }
+
         private async Task<List<ChildCategory>> GetChildCategoriesDetail(string parentUrl)
         {
             List<ChildCategory> childCategories = new List<ChildCategory>();
 
             try
-            {
-                HtmlWeb web = new HtmlWeb();
-                var document = web.Load(parentUrl);
+            {                
+                
+                var document = GetHtmlDocument(parentUrl, 1);
 
                 var categoryNodes = document.DocumentNode.SelectNodes("//div[@class='cat-colm']");
 
@@ -748,7 +788,11 @@ namespace CrawlyScraper
             }
             else
             {
-                textBoxContent.Text += $"{progressInfo.Message}{Environment.NewLine}";
+                if (!string.IsNullOrEmpty(progressInfo.Message))
+                {
+                    textBoxContent.AppendText($"{progressInfo.Message}{Environment.NewLine}");
+                }
+                
                 progressBar.Value = progressInfo.Value;
             }
         }
