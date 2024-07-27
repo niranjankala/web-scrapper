@@ -94,7 +94,7 @@ namespace CrawlyScraper.App
             }
             catch (Exception ex)
             {
-                statusBar.Text = "Error occurred during merging.";
+                ProgressStatusLabel.Text = "Error occurred during merging.";
                 MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -197,14 +197,17 @@ namespace CrawlyScraper.App
         {
             var mergedProducts = new List<Dictionary<string, string>>();
             var additionalImages = new Dictionary<string, List<(string, string)>>();
-            var parentCategories = categories.Where(c => c.ParentId == "0");
+            var parentCategories = categories.Where(c => c.ParentId == "0").ToList();
             int productId = 1;
-            foreach (var parentCategory in parentCategories)
+            int totalCategories = parentCategories.Count;
+
+            Parallel.ForEach(parentCategories, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, parentCategory =>
             {
                 var parentDir = Path.Combine(directoryPath, parentCategory.Name);
                 if (!Directory.Exists(parentDir))
-                    continue;
-                int categoryCounter = 1;
+                    return;
+
+                var categoryCounter = 0;
                 foreach (var category in categories.Where(c => c.ParentId == parentCategory.CategoryId))
                 {
                     var childFilePath = Path.Combine(parentDir, $"{category.Name.Trim()}.xlsx");
@@ -215,40 +218,43 @@ namespace CrawlyScraper.App
                             continue;
                     }
 
-
-
                     var products = ReadChildCategoryExcel(childFilePath);
 
-                    foreach (var product in products)
+                    lock (mergedProducts)
                     {
-                        var existingProduct = mergedProducts.FirstOrDefault(p => p["Product Name"] == product["Product Name"] && p["Product Link"] == product["Product Link"]);
-                        if (existingProduct != null)
+                        foreach (var product in products)
                         {
-                            string[] existingCategories = existingProduct["Categories"].Split(",");
-                            if (!existingCategories.Contains($"{parentCategory.CategoryId}"))
+                            var existingProduct = mergedProducts.FirstOrDefault(p => p["Product Name"] == product["Product Name"] && p["Product Link"] == product["Product Link"]);
+                            if (existingProduct != null)
                             {
-                                existingProduct["Categories"] += $",{parentCategory.CategoryId}";
+                                string[] existingCategories = existingProduct["Categories"].Split(",");
+                                if (!existingCategories.Contains($"{parentCategory.CategoryId}"))
+                                {
+                                    existingProduct["Categories"] += $",{parentCategory.CategoryId}";
+                                }
+                                if (!existingCategories.Contains($",{category.CategoryId}"))
+                                {
+                                    existingProduct["Categories"] += $",{category.CategoryId}";
+                                }
                             }
-                            if (!existingCategories.Contains($",{category.CategoryId}"))
+                            else
                             {
-                                existingProduct["Categories"] += $",{category.CategoryId}";
+                                if (product.ContainsKey("product_id"))
+                                {
+                                    product["product_id"] = productId.ToString();
+                                }
+                                productId++;
+                                product["Categories"] = $"{parentCategory.CategoryId},{category.CategoryId}";
+                                mergedProducts.Add(product);
                             }
-                        }
-                        else
-                        {
-                            if (product.ContainsKey("product_id"))
-                            {
-                                product["product_id"] = productId.ToString();
-                            }
-                            productId++;
-                            product["Categories"] = $"{parentCategory.CategoryId},{category.CategoryId}";
-                            mergedProducts.Add(product);
                         }
                     }
-                    var progress = 10 + (categoryCounter / parentCategories.Count()) * 70;
-                    progressReporter.ReportProgress(new ProgressInfo(progress, $"Processed Category:{category.Name}."));
+
+                    categoryCounter++;
+                    var progress = 10 + ((categoryCounter * 90) / totalCategories);
+                    progressReporter.ReportProgress(new ProgressInfo(progress, $"Processed Category: {category.Name}."));
                 }
-            }
+            });
 
             CreateOutputExcel(mergedProducts, outputPath);
         }
@@ -405,9 +411,15 @@ namespace CrawlyScraper.App
             }
             else
             {
-                statusBar.Text += $"{progressInfo.Message}{Environment.NewLine}";
-                progressBar.Value = progressInfo.Value;
+                ProgressStatusLabel.Text = $"{progressInfo.Message}{Environment.NewLine}";
+                if (progressInfo.Value <= 100)
+                    progressBar.Value = progressInfo.Value;
             }
+        }
+
+        private void SplitDataInFiles_Click(object sender, EventArgs e)
+        {
+
         }
     }
 

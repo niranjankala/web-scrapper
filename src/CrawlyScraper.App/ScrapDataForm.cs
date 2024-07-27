@@ -134,7 +134,7 @@ namespace CrawlyScraper
                     int additionalImagesRowIndex = 2;
                     foreach (var product in products)
                     {
-                        worksheetProducts.Cells[row, 1].Value = row-1;
+                        worksheetProducts.Cells[row, 1].Value = row - 1;
                         worksheetProducts.Cells[row, 2].Value = product.ProductName;
                         worksheetProducts.Cells[row, 3].Value = product.ProductLink;
                         worksheetProducts.Cells[row, 4].Value = product.ProductImages.Any() ? product.ProductImages.First() : "";
@@ -148,7 +148,7 @@ namespace CrawlyScraper
                             worksheetProducts.Cells[row, columns.IndexOf(specName) + 1].Value = product.ProductDetails[specName];
                         }
 
-                        
+
                         if (product.ProductImages.Count > 1)
                         {
                             int order = 1;
@@ -250,7 +250,7 @@ namespace CrawlyScraper
             try
             {
                 Uri uri = new Uri(url);
-                string baseUrl = $"{uri.Scheme}://{uri.Host}";                
+                string baseUrl = $"{uri.Scheme}://{uri.Host}";
                 var document = GetHtmlDocument(url, 1);
 
                 var productNodes = document.DocumentNode.SelectNodes("//div[@class='AH_ProductView col-lg-3 col-md-3 col-sm-6 col-xs-6 productThumbnails']");
@@ -324,7 +324,7 @@ namespace CrawlyScraper
                         products.AddRange(productsGroup);
 
                     }
-                }              
+                }
             }
             catch (Exception ex)
             {
@@ -362,8 +362,8 @@ namespace CrawlyScraper
         {
             List<Product> subProducts = new List<Product>();
             try
-            {   
-                var document =GetHtmlDocument(product.ProductLink, 1);
+            {
+                var document = GetHtmlDocument(product.ProductLink, 1);
 
                 var productRefNodes = document.DocumentNode.SelectNodes("//table[@id='family-table']/tbody/tr/td[1]/a[1]/@href");
                 if (productRefNodes != null)
@@ -423,7 +423,7 @@ namespace CrawlyScraper
         }
 
         private Product GetProductDetails(Product product)
-        {           
+        {
             var document = GetHtmlDocument(product.ProductLink, 1);
 
             // Fetch the product title
@@ -692,7 +692,7 @@ namespace CrawlyScraper
                 string[] categoryUrls = File.ReadAllLines($"{directory}\\App_Data\\categories.txt");
                 List<Product> products = new List<Product>();
                 var progress = new Progress<ProgressInfo>(UpdateProgressBar);
-                var progressReporter = new ProgressReporter(progress);               
+                var progressReporter = new ProgressReporter(progress);
 
                 foreach (var item in categoryUrls)
                 {
@@ -724,7 +724,7 @@ namespace CrawlyScraper
                         }
                     }
                 }
-               
+
                 progressReporter.ReportProgress(new ProgressInfo() { Value = 66, Message = $"Downloading product images..." });
 
                 // Write All Images URL to file
@@ -741,8 +741,8 @@ namespace CrawlyScraper
             List<ChildCategory> childCategories = new List<ChildCategory>();
 
             try
-            {                
-                
+            {
+
                 var document = GetHtmlDocument(parentUrl, 1);
 
                 var categoryNodes = document.DocumentNode.SelectNodes("//div[@class='cat-colm']");
@@ -792,7 +792,7 @@ namespace CrawlyScraper
                 {
                     textBoxContent.AppendText($"{progressInfo.Message}{Environment.NewLine}");
                 }
-                
+
                 progressBar.Value = progressInfo.Value;
             }
         }
@@ -800,6 +800,13 @@ namespace CrawlyScraper
         private void btnMergeData_Click(object sender, EventArgs e)
         {
             MergeDataForm form = new MergeDataForm();
+            form.StartPosition = FormStartPosition.CenterParent;
+            form.ShowDialog();
+        }
+
+        private void SplitDataButton_Click(object sender, EventArgs e)
+        {
+            SplitDataForm form = new SplitDataForm();
             form.StartPosition = FormStartPosition.CenterParent;
             form.ShowDialog();
         }

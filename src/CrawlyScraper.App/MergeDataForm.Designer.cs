@@ -39,7 +39,9 @@
             btnBrowseExport = new Button();
             progressBar = new ProgressBar();
             statusBar = new StatusStrip();
+            ProgressStatusLabel = new ToolStripStatusLabel();
             btnMergeData = new Button();
+            statusBar.SuspendLayout();
             SuspendLayout();
             // 
             // lblCategoriesPath
@@ -143,15 +145,22 @@
             // statusBar
             // 
             statusBar.ImageScalingSize = new Size(28, 28);
-            statusBar.Location = new Point(0, 580);
+            statusBar.Items.AddRange(new ToolStripItem[] { ProgressStatusLabel });
+            statusBar.Location = new Point(0, 563);
             statusBar.Name = "statusBar";
             statusBar.Padding = new Padding(2, 0, 28, 0);
-            statusBar.Size = new Size(810, 22);
+            statusBar.Size = new Size(810, 39);
             statusBar.TabIndex = 10;
+            // 
+            // ProgressStatusLabel
+            // 
+            ProgressStatusLabel.Name = "ProgressStatusLabel";
+            ProgressStatusLabel.Size = new Size(28, 30);
+            ProgressStatusLabel.Text = "...";
             // 
             // btnMergeData
             // 
-            btnMergeData.Location = new Point(318, 531);
+            btnMergeData.Location = new Point(316, 494);
             btnMergeData.Margin = new Padding(6, 7, 6, 7);
             btnMergeData.Name = "btnMergeData";
             btnMergeData.Size = new Size(150, 53);
@@ -180,6 +189,8 @@
             Margin = new Padding(6, 7, 6, 7);
             Name = "MergeDataForm";
             Text = "Category Data Merger";
+            statusBar.ResumeLayout(false);
+            statusBar.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -199,5 +210,7 @@
 
 
         #endregion
+
+        private ToolStripStatusLabel ProgressStatusLabel;
     }
 }
