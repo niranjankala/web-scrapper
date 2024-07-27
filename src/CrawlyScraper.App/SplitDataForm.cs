@@ -85,8 +85,15 @@ namespace CrawlyScraper.App
 
                             for (int row = 2; row <= rowCount; row++)
                             {
-                                var weightMatch = weightRegex.Match(productsWorksheet.Cells[row, 20].Text);
+                                // Remove commas from the price column
+                                string priceText = productsWorksheet.Cells[row, 16].Text.Replace(",", "");
+                                if (decimal.TryParse(priceText, out decimal price))
+                                {
+                                    productsWorksheet.Cells[row, 16].Value = price;
+                                }
 
+                                // Handle weight and unit
+                                var weightMatch = weightRegex.Match(productsWorksheet.Cells[row, 20].Text);
                                 if (weightMatch.Success)
                                 {
                                     string weight = weightMatch.Groups[1].Value;
