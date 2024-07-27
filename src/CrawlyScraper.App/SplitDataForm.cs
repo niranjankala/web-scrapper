@@ -1,14 +1,12 @@
 ﻿using OfficeOpenXml;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
+using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using LicenseContext = OfficeOpenXml.LicenseContext;
+
 namespace CrawlyScraper.App
 {
     public partial class SplitDataForm : Form
@@ -17,7 +15,6 @@ namespace CrawlyScraper.App
         {
             InitializeComponent();
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-
         }
 
         private void buttonBrowseFile_Click(object sender, EventArgs e)
@@ -48,8 +45,8 @@ namespace CrawlyScraper.App
         private void buttonSplitData_Click(object sender, EventArgs e)
         {
             if (int.TryParse(textBoxNumFiles.Text, out int numFiles) &&
-          !string.IsNullOrEmpty(textBoxFilePath.Text) &&
-          !string.IsNullOrEmpty(textBoxTargetFolder.Text))
+                !string.IsNullOrEmpty(textBoxFilePath.Text) &&
+                !string.IsNullOrEmpty(textBoxTargetFolder.Text))
             {
                 statusLabel.Text = "Processing...";
                 SplitExcelData(textBoxFilePath.Text, numFiles, textBoxTargetFolder.Text);
@@ -61,26 +58,61 @@ namespace CrawlyScraper.App
                 MessageBox.Show("Please enter valid inputs.");
             }
         }
+
         private void SplitExcelData(string filePath, int numFiles, string targetFolder)
         {
+            Regex weightRegex = new Regex(@"(\d+)([a-zA-Z]+)");
+
             try
             {
                 using (var package = new ExcelPackage(new FileInfo(filePath)))
                 {
-                    // Get the worksheets from the original file
                     var worksheets = package.Workbook.Worksheets;
 
-                    // Process each worksheet
                     foreach (var worksheet in worksheets)
                     {
+                        EnsureHeaders(worksheet);
+
                         if (worksheet.Name == "ProductSEOKeywords")
                         {
-                            RemoveDuplicates(worksheet);
+                            RemoveInvalidAndDuplicateRows(worksheet, package.Workbook.Worksheets["Products"]);
                         }
-                    }
 
-                    // Define headers for all sheets
-                    var headers = new Dictionary<string, List<string>>
+                        var productsWorksheet = package.Workbook.Worksheets["Products"];
+                        if (productsWorksheet != null)
+                        {
+                            int rowCount = productsWorksheet.Dimension.Rows;
+
+                            for (int row = 2; row <= rowCount; row++)
+                            {
+                                var weightMatch = weightRegex.Match(productsWorksheet.Cells[row, 20].Text);
+
+                                if (weightMatch.Success)
+                                {
+                                    string weight = weightMatch.Groups[1].Value;
+                                    string unit = weightMatch.Groups[2].Value;
+
+                                    productsWorksheet.Cells[row, 20].Value = int.Parse(weight); // Assuming weight is integer
+                                    productsWorksheet.Cells[row, 21].Value = unit; // Directly use the unit text
+                                }
+                            }
+                        }
+
+                        SplitAndSave(worksheet, numFiles, targetFolder, filePath);
+                    }
+                }
+
+                MessageBox.Show("Data splitting completed.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void EnsureHeaders(ExcelWorksheet worksheet)
+        {
+            var headers = new Dictionary<string, List<string>>
             {
                 { "Products", new List<string> { "product_id", "name(en-gb)", "categories", "sku", "upc", "ean", "jan", "isbn", "mpn", "location", "quantity", "model", "manufacturer", "image_name", "shipping", "price", "points", "date_added", "date_modified", "date_available", "weight", "weight_unit", "length", "width", "height", "length_unit", "status", "tax_class_id", "description(en-gb)", "meta_title(en-gb)", "meta_description(en-gb)", "meta_keywords(en-gb)", "stock_status_id", "store_ids", "layout", "related_ids", "tags(en-gb)", "sort_order", "subtract", "minimum" } },
                 { "AdditionalImages", new List<string> { "product_id", "image", "sort_order" } },
@@ -94,118 +126,76 @@ namespace CrawlyScraper.App
                 { "ProductSEOKeywords", new List<string> { "product_id", "store_id", "keyword(en-gb)" } }
             };
 
-                    // Determine the total number of rows for each sheet
-                    var rowCounts = new Dictionary<string, int>();
-
-                    foreach (var worksheet in worksheets)
+            if (headers.ContainsKey(worksheet.Name))
+            {
+                var headerList = headers[worksheet.Name];
+                for (int col = 1; col <= headerList.Count; col++)
+                {
+                    if (worksheet.Cells[1, col].Text != headerList[col - 1])
                     {
-                        rowCounts[worksheet.Name] = worksheet.Dimension.End.Row;
-                    }
-
-                    // Calculate the number of rows per file
-                    var rowsPerFile = (int)Math.Ceiling((double)rowCounts.Values.Max() / numFiles);
-
-                    for (int fileIndex = 0; fileIndex < numFiles; fileIndex++)
-                    {
-                        var newFilePath = Path.Combine(targetFolder, $"Part_{fileIndex + 1}.xlsx");
-
-                        using (var newPackage = new ExcelPackage())
-                        {
-                            foreach (var worksheet in worksheets)
-                            {
-                                var newWorksheet = newPackage.Workbook.Worksheets.Add(worksheet.Name);
-
-                                // Add headers
-                                if (headers.ContainsKey(worksheet.Name))
-                                {
-                                    var headerList = headers[worksheet.Name];
-                                    for (int col = 1; col <= headerList.Count; col++)
-                                    {
-                                        newWorksheet.Cells[1, col].Value = headerList[col - 1];
-                                    }
-                                }
-
-                                // Add data rows
-                                var startRow = fileIndex * rowsPerFile + 2; // Start row (skip header)
-                                var endRow = Math.Min(startRow + rowsPerFile - 1, rowCounts[worksheet.Name]);
-
-                                for (int row = startRow; row <= endRow; row++)
-                                {
-                                    for (int col = 1; col <= worksheet.Dimension.End.Column; col++)
-                                    {
-                                        newWorksheet.Cells[row - startRow + 2, col].Value = worksheet.Cells[row, col].Text;
-                                    }
-                                }
-                            }
-
-                            // Save the new file
-                            File.WriteAllBytes(newFilePath, newPackage.GetAsByteArray());
-                        }
+                        worksheet.Cells[1, col].Value = headerList[col - 1];
                     }
                 }
-
-                MessageBox.Show("Data splitting completed.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private void RemoveDuplicates(ExcelWorksheet worksheet)
+        private void RemoveInvalidAndDuplicateRows(ExcelWorksheet worksheet, ExcelWorksheet productsWorksheet)
         {
-            // Dictionary to keep track of unique rows based on the combination of all columns
-            var uniqueRows = new HashSet<string>();
-            var rowCount = worksheet.Dimension.End.Row;
-            var columnCount = worksheet.Dimension.End.Column;
-
-            // To store unique rows
-            var rowsToKeep = new List<int>();
-
-            for (int row = 2; row <= rowCount; row++) // Start from row 2 to skip header
+            var validProductIds = new HashSet<string>();
+            for (int row = 2; row <= productsWorksheet.Dimension.Rows; row++)
             {
-                var rowValues = new List<string>();
-
-                for (int col = 1; col <= columnCount; col++)
-                {
-                    rowValues.Add(worksheet.Cells[row, col].Text);
-                }
-
-                var rowKey = string.Join("|", rowValues);
-
-                if (!uniqueRows.Contains(rowKey))
-                {
-                    uniqueRows.Add(rowKey);
-                    rowsToKeep.Add(row);
-                }
+                validProductIds.Add(productsWorksheet.Cells[row, 1].Text);
             }
 
-            // Create a new worksheet to keep unique rows
-            var newWorksheet = worksheet.Workbook.Worksheets.Add(worksheet.Name + "_Unique");
-
-            // Copy header
-            for (int col = 1; col <= columnCount; col++)
+            var seenRows = new HashSet<string>();
+            for (int row = worksheet.Dimension.Rows; row >= 2; row--)
             {
-                newWorksheet.Cells[1, col].Value = worksheet.Cells[1, col].Text;
-            }
+                var productId = worksheet.Cells[row, 1].Text;
+                var rowValues = string.Join(",", worksheet.Cells[row, 1, row, worksheet.Dimension.Columns].Select(c => c.Text));
 
-            // Copy unique rows
-            int newRowIndex = 2; // Start from row 2 to keep header
-            foreach (var rowIndex in rowsToKeep)
-            {
-                for (int col = 1; col <= columnCount; col++)
+                if (!validProductIds.Contains(productId) || seenRows.Contains(rowValues))
                 {
-                    newWorksheet.Cells[newRowIndex, col].Value = worksheet.Cells[rowIndex, col].Text;
+                    worksheet.DeleteRow(row);
                 }
-                newRowIndex++;
+                else
+                {
+                    seenRows.Add(rowValues);
+                }
             }
-
-            // Replace old worksheet with the new one
-            worksheet.Workbook.Worksheets.Delete(worksheet.Name);
-            newWorksheet.Name = worksheet.Name;
         }
 
+        private void SplitAndSave(ExcelWorksheet worksheet, int numFiles, string targetFolder, string filePath)
+        {
+            int rowCount = worksheet.Dimension.Rows;
+            int rowsPerFile = (rowCount - 1) / numFiles; // excluding header row
 
+            for (int fileIndex = 0; fileIndex < numFiles; fileIndex++)
+            {
+                var newPackage = new ExcelPackage();
+                var newWorksheet = newPackage.Workbook.Worksheets.Add(worksheet.Name);
 
+                // Copy headers
+                for (int col = 1; col <= worksheet.Dimension.Columns; col++)
+                {
+                    newWorksheet.Cells[1, col].Value = worksheet.Cells[1, col].Value;
+                }
+
+                // Copy data
+                int startRow = (fileIndex * rowsPerFile) + 2;
+                int endRow = (fileIndex == numFiles - 1) ? rowCount : startRow + rowsPerFile - 1;
+
+                for (int row = startRow; row <= endRow; row++)
+                {
+                    for (int col = 1; col <= worksheet.Dimension.Columns; col++)
+                    {
+                        newWorksheet.Cells[row - startRow + 2, col].Value = worksheet.Cells[row, col].Value;
+                    }
+                }
+
+                // Save new file
+                var newFilePath = Path.Combine(targetFolder, $"{Path.GetFileNameWithoutExtension(filePath)}_part{fileIndex + 1}.xlsx");
+                newPackage.SaveAs(new FileInfo(newFilePath));
+            }
+        }
     }
 }
