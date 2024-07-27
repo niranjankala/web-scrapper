@@ -62,56 +62,6 @@ namespace CrawlyScraper.App
         private void SplitExcelData(string filePath, int numFiles, string targetFolder)
         {
             Regex weightRegex = new Regex(@"(\d+)([a-zA-Z]+)");
-
-            try
-            {
-                using (var package = new ExcelPackage(new FileInfo(filePath)))
-                {
-                    var worksheets = package.Workbook.Worksheets;
-
-                    foreach (var worksheet in worksheets)
-                    {
-                        EnsureHeaders(worksheet);
-
-                        if (worksheet.Name == "ProductSEOKeywords")
-                        {
-                            RemoveInvalidAndDuplicateRows(worksheet, package.Workbook.Worksheets["Products"]);
-                        }
-
-                        var productsWorksheet = package.Workbook.Worksheets["Products"];
-                        if (productsWorksheet != null)
-                        {
-                            int rowCount = productsWorksheet.Dimension.Rows;
-
-                            for (int row = 2; row <= rowCount; row++)
-                            {
-                                var weightMatch = weightRegex.Match(productsWorksheet.Cells[row, 20].Text);
-
-                                if (weightMatch.Success)
-                                {
-                                    string weight = weightMatch.Groups[1].Value;
-                                    string unit = weightMatch.Groups[2].Value;
-
-                                    productsWorksheet.Cells[row, 20].Value = int.Parse(weight); // Assuming weight is integer
-                                    productsWorksheet.Cells[row, 21].Value = unit; // Directly use the unit text
-                                }
-                            }
-                        }
-
-                        SplitAndSave(worksheet, numFiles, targetFolder, filePath);
-                    }
-                }
-
-                MessageBox.Show("Data splitting completed.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void EnsureHeaders(ExcelWorksheet worksheet)
-        {
             var headers = new Dictionary<string, List<string>>
             {
                 { "Products", new List<string> { "product_id", "name(en-gb)", "categories", "sku", "upc", "ean", "jan", "isbn", "mpn", "location", "quantity", "model", "manufacturer", "image_name", "shipping", "price", "points", "date_added", "date_modified", "date_available", "weight", "weight_unit", "length", "width", "height", "length_unit", "status", "tax_class_id", "description(en-gb)", "meta_title(en-gb)", "meta_description(en-gb)", "meta_keywords(en-gb)", "stock_status_id", "store_ids", "layout", "related_ids", "tags(en-gb)", "sort_order", "subtract", "minimum" } },
@@ -126,6 +76,69 @@ namespace CrawlyScraper.App
                 { "ProductSEOKeywords", new List<string> { "product_id", "store_id", "keyword(en-gb)" } }
             };
 
+            try
+            {
+                using (var package = new ExcelPackage(new FileInfo(filePath)))
+                {
+                    var worksheets = package.Workbook.Worksheets;
+
+                    // Process each worksheet
+                    foreach (var worksheet in worksheets)
+                    {
+                        EnsureHeaders(worksheet, headers);
+
+                        if (worksheet.Name == "Products")
+                        {
+                            int rowCount = worksheet.Dimension.Rows;
+
+                            for (int row = 2; row <= rowCount; row++)
+                            {
+                                // Process price column
+                                var priceCell = worksheet.Cells[row, 16];
+                                if (priceCell.Text.Contains(","))
+                                {
+                                    priceCell.Value = priceCell.Text.Replace(",", "");
+                                }
+
+                                // Process weight column
+                                var weightMatch = weightRegex.Match(worksheet.Cells[row, 21].Text);
+                                if (weightMatch.Success)
+                                {
+                                    string weight = weightMatch.Groups[1].Value;
+                                    string unit = weightMatch.Groups[2].Value;
+
+                                    worksheet.Cells[row, 21].Value = int.Parse(weight); // Assuming weight is integer
+                                    worksheet.Cells[row, 22].Value = unit; // Directly use the unit text
+                                }
+                            }
+                        }
+
+                        if (worksheet.Name == "ProductSEOKeywords")
+                        {
+                            RemoveDuplicateKeywords(worksheet);
+                        }
+                    }
+
+                    // Calculate number of rows per file
+                    var rowCounts = worksheets.ToDictionary(ws => ws.Name, ws => ws.Dimension.End.Row);
+                    var rowsPerFile = (int)Math.Ceiling((double)rowCounts.Values.Max() / numFiles);
+
+                    foreach (var worksheet in worksheets)
+                    {
+                        SplitAndSave(worksheet, numFiles, targetFolder, filePath, rowsPerFile);
+                    }
+                }
+
+                MessageBox.Show("Data splitting completed.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void EnsureHeaders(ExcelWorksheet worksheet, Dictionary<string, List<string>> headers)
+        {
             if (headers.ContainsKey(worksheet.Name))
             {
                 var headerList = headers[worksheet.Name];
@@ -139,35 +152,33 @@ namespace CrawlyScraper.App
             }
         }
 
-        private void RemoveInvalidAndDuplicateRows(ExcelWorksheet worksheet, ExcelWorksheet productsWorksheet)
+        private void RemoveDuplicateKeywords(ExcelWorksheet worksheet)
         {
-            var validProductIds = new HashSet<string>();
-            for (int row = 2; row <= productsWorksheet.Dimension.Rows; row++)
-            {
-                validProductIds.Add(productsWorksheet.Cells[row, 1].Text);
-            }
+            var seenKeywords = new HashSet<string>();
+            var rowsToRemove = new List<int>();
 
-            var seenRows = new HashSet<string>();
-            for (int row = worksheet.Dimension.Rows; row >= 2; row--)
+            for (int row = worksheet.Dimension.Rows; row >= 2; row--) // Start from bottom to avoid index shift issues
             {
-                var productId = worksheet.Cells[row, 1].Text;
-                var rowValues = string.Join(",", worksheet.Cells[row, 1, row, worksheet.Dimension.Columns].Select(c => c.Text));
-
-                if (!validProductIds.Contains(productId) || seenRows.Contains(rowValues))
+                var keyword = worksheet.Cells[row, 3].Text; // Keyword is in the 3rd column
+                if (seenKeywords.Contains(keyword))
                 {
-                    worksheet.DeleteRow(row);
+                    rowsToRemove.Add(row);
                 }
                 else
                 {
-                    seenRows.Add(rowValues);
+                    seenKeywords.Add(keyword);
                 }
+            }
+
+            foreach (var row in rowsToRemove)
+            {
+                worksheet.DeleteRow(row);
             }
         }
 
-        private void SplitAndSave(ExcelWorksheet worksheet, int numFiles, string targetFolder, string filePath)
+        private void SplitAndSave(ExcelWorksheet worksheet, int numFiles, string targetFolder, string filePath, int rowsPerFile)
         {
             int rowCount = worksheet.Dimension.Rows;
-            int rowsPerFile = (rowCount - 1) / numFiles; // excluding header row
 
             for (int fileIndex = 0; fileIndex < numFiles; fileIndex++)
             {
