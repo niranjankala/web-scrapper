@@ -70,54 +70,40 @@ namespace CrawlyScraper.App
                     // Get the worksheets from the original file
                     var worksheets = package.Workbook.Worksheets;
 
-                    // Remove duplicates from the "ProductSEOKeywords" sheet
-                    var seoKeywordsSheet = worksheets.FirstOrDefault(ws => ws.Name == "ProductSEOKeywords");
-                    if (seoKeywordsSheet != null)
-                    {
-                        RemoveDuplicates(seoKeywordsSheet);
-                    }
-
-                    // Dictionary to store data by product_id for each worksheet
-                    var productData = new Dictionary<string, List<Dictionary<string, object>>>();
-                    var productIds = new HashSet<string>();
-
-                    // Process each worksheet and organize data by product_id
+                    // Process each worksheet
                     foreach (var worksheet in worksheets)
                     {
-                        var sheetData = new List<Dictionary<string, object>>();
-                        var headers = new Dictionary<int, string>();
-
-                        // Read headers
-                        for (int col = 1; col <= worksheet.Dimension.End.Column; col++)
+                        if (worksheet.Name == "ProductSEOKeywords")
                         {
-                            headers[col] = worksheet.Cells[1, col].Text;
+                            RemoveDuplicates(worksheet);
                         }
-
-                        // Read data rows
-                        for (int row = 2; row <= worksheet.Dimension.End.Row; row++)
-                        {
-                            var rowData = new Dictionary<string, object>();
-                            for (int col = 1; col <= worksheet.Dimension.End.Column; col++)
-                            {
-                                rowData[headers[col]] = worksheet.Cells[row, col].Text;
-                            }
-
-                            sheetData.Add(rowData);
-
-                            // Track product_id
-                            if (headers.ContainsValue("product_id"))
-                            {
-                                var productId = rowData["product_id"].ToString();
-                                productIds.Add(productId);
-                            }
-                        }
-
-                        productData[worksheet.Name] = sheetData;
                     }
 
-                    // Split data into multiple files
-                    var productIdList = productIds.ToList();
-                    var idsPerFile = (int)Math.Ceiling((double)productIdList.Count / numFiles);
+                    // Define headers for all sheets
+                    var headers = new Dictionary<string, List<string>>
+            {
+                { "Products", new List<string> { "product_id", "name(en-gb)", "categories", "sku", "upc", "ean", "jan", "isbn", "mpn", "location", "quantity", "model", "manufacturer", "image_name", "shipping", "price", "points", "date_added", "date_modified", "date_available", "weight", "weight_unit", "length", "width", "height", "length_unit", "status", "tax_class_id", "description(en-gb)", "meta_title(en-gb)", "meta_description(en-gb)", "meta_keywords(en-gb)", "stock_status_id", "store_ids", "layout", "related_ids", "tags(en-gb)", "sort_order", "subtract", "minimum" } },
+                { "AdditionalImages", new List<string> { "product_id", "image", "sort_order" } },
+                { "Specials", new List<string> { "product_id", "customer_group", "priority", "price", "date_start", "date_end" } },
+                { "Discounts", new List<string> { "product_id", "customer_group", "quantity", "priority", "price", "date_start", "date_end" } },
+                { "Rewards", new List<string> { "product_id", "customer_group", "points" } },
+                { "ProductOptions", new List<string> { "product_id", "option", "default_option_value", "required" } },
+                { "ProductOptionValues", new List<string> { "product_id", "option", "option_value", "quantity", "subtract", "price", "price_prefix", "points", "points_prefix", "weight", "weight_prefix" } },
+                { "ProductAttributes", new List<string> { "product_id", "attribute_group", "attribute", "text(en-gb)" } },
+                { "ProductFilters", new List<string> { "product_id", "filter_group", "filter" } },
+                { "ProductSEOKeywords", new List<string> { "product_id", "store_id", "keyword(en-gb)" } }
+            };
+
+                    // Determine the total number of rows for each sheet
+                    var rowCounts = new Dictionary<string, int>();
+
+                    foreach (var worksheet in worksheets)
+                    {
+                        rowCounts[worksheet.Name] = worksheet.Dimension.End.Row;
+                    }
+
+                    // Calculate the number of rows per file
+                    var rowsPerFile = (int)Math.Ceiling((double)rowCounts.Values.Max() / numFiles);
 
                     for (int fileIndex = 0; fileIndex < numFiles; fileIndex++)
                     {
@@ -130,31 +116,24 @@ namespace CrawlyScraper.App
                                 var newWorksheet = newPackage.Workbook.Worksheets.Add(worksheet.Name);
 
                                 // Add headers
-                                var headers = productData[worksheet.Name][0].Keys.ToList();
-                                for (int col = 0; col < headers.Count; col++)
+                                if (headers.ContainsKey(worksheet.Name))
                                 {
-                                    newWorksheet.Cells[1, col + 1].Value = headers[col];
+                                    var headerList = headers[worksheet.Name];
+                                    for (int col = 1; col <= headerList.Count; col++)
+                                    {
+                                        newWorksheet.Cells[1, col].Value = headerList[col - 1];
+                                    }
                                 }
 
                                 // Add data rows
-                                int newRowIdx = 2;
-                                var startIdx = fileIndex * idsPerFile;
-                                var endIdx = Math.Min(startIdx + idsPerFile, productIdList.Count);
+                                var startRow = fileIndex * rowsPerFile + 2; // Start row (skip header)
+                                var endRow = Math.Min(startRow + rowsPerFile - 1, rowCounts[worksheet.Name]);
 
-                                for (int idIdx = startIdx; idIdx < endIdx; idIdx++)
+                                for (int row = startRow; row <= endRow; row++)
                                 {
-                                    var productId = productIdList[idIdx];
-
-                                    foreach (var rowData in productData[worksheet.Name])
+                                    for (int col = 1; col <= worksheet.Dimension.End.Column; col++)
                                     {
-                                        if (rowData.ContainsKey("product_id") && rowData["product_id"].ToString() == productId)
-                                        {
-                                            for (int col = 0; col < headers.Count; col++)
-                                            {
-                                                newWorksheet.Cells[newRowIdx, col + 1].Value = rowData[headers[col]];
-                                            }
-                                            newRowIdx++;
-                                        }
+                                        newWorksheet.Cells[row - startRow + 2, col].Value = worksheet.Cells[row, col].Text;
                                     }
                                 }
                             }
@@ -175,34 +154,57 @@ namespace CrawlyScraper.App
 
         private void RemoveDuplicates(ExcelWorksheet worksheet)
         {
+            // Dictionary to keep track of unique rows based on the combination of all columns
             var uniqueRows = new HashSet<string>();
             var rowCount = worksheet.Dimension.End.Row;
             var columnCount = worksheet.Dimension.End.Column;
 
-            for (int row = rowCount; row >= 2; row--) // Start from the last row to the first row
+            // To store unique rows
+            var rowsToKeep = new List<int>();
+
+            for (int row = 2; row <= rowCount; row++) // Start from row 2 to skip header
             {
                 var rowValues = new List<string>();
 
                 for (int col = 1; col <= columnCount; col++)
                 {
-                    if (worksheet.Name == "ProductSEOKeywords" && col != 3)
-                    {
-                        continue;
-                    }
-                    else
-                    {
-                        rowValues.Add(worksheet.Cells[row, col].Text);
-                    }
+                    rowValues.Add(worksheet.Cells[row, col].Text);
                 }
 
                 var rowKey = string.Join("|", rowValues);
 
-                if (!uniqueRows.Add(rowKey)) // If the row is already in the set, remove it
+                if (!uniqueRows.Contains(rowKey))
                 {
-                    worksheet.DeleteRow(row);
+                    uniqueRows.Add(rowKey);
+                    rowsToKeep.Add(row);
                 }
             }
+
+            // Create a new worksheet to keep unique rows
+            var newWorksheet = worksheet.Workbook.Worksheets.Add(worksheet.Name + "_Unique");
+
+            // Copy header
+            for (int col = 1; col <= columnCount; col++)
+            {
+                newWorksheet.Cells[1, col].Value = worksheet.Cells[1, col].Text;
+            }
+
+            // Copy unique rows
+            int newRowIndex = 2; // Start from row 2 to keep header
+            foreach (var rowIndex in rowsToKeep)
+            {
+                for (int col = 1; col <= columnCount; col++)
+                {
+                    newWorksheet.Cells[newRowIndex, col].Value = worksheet.Cells[rowIndex, col].Text;
+                }
+                newRowIndex++;
+            }
+
+            // Replace old worksheet with the new one
+            worksheet.Workbook.Worksheets.Delete(worksheet.Name);
+            newWorksheet.Name = worksheet.Name;
         }
+
 
 
     }
