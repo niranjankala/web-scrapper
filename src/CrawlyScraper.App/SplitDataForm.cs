@@ -70,12 +70,22 @@ namespace CrawlyScraper.App
                     // Get the worksheets from the original file
                     var worksheets = package.Workbook.Worksheets;
 
-                    // Process each worksheet
+                    // Load product IDs from the Products sheet
+                    var productSheet = worksheets.FirstOrDefault(ws => ws.Name == "Products");
+                    var productIds = new HashSet<string>();
+
+                    for (int row = 2; row <= productSheet.Dimension.End.Row; row++)
+                    {
+                        productIds.Add(productSheet.Cells[row, 1].Text);
+                    }
+
+                    // Process each worksheet and ensure headers
                     foreach (var worksheet in worksheets)
                     {
+                        EnsureHeaders(worksheet);
                         if (worksheet.Name == "ProductSEOKeywords")
                         {
-                            RemoveDuplicates(worksheet);
+                            RemoveInvalidAndDuplicateRows(worksheet, productIds);
                         }
                     }
 
@@ -152,7 +162,7 @@ namespace CrawlyScraper.App
             }
         }
 
-        private void RemoveDuplicates(ExcelWorksheet worksheet)
+        private void RemoveInvalidAndDuplicateRows(ExcelWorksheet worksheet, HashSet<string> validProductIds)
         {
             // Dictionary to keep track of unique rows based on the combination of all columns
             var uniqueRows = new HashSet<string>();
@@ -168,12 +178,20 @@ namespace CrawlyScraper.App
 
                 for (int col = 1; col <= columnCount; col++)
                 {
-                    rowValues.Add(worksheet.Cells[row, col].Text);
+                    if (worksheet.Name == "ProductSEOKeywords" && col != 3)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        rowValues.Add(worksheet.Cells[row, col].Text);
+                    }
                 }
 
                 var rowKey = string.Join("|", rowValues);
 
-                if (!uniqueRows.Contains(rowKey))
+                // Check if product_id is valid
+                if (validProductIds.Contains(rowValues[0]) && !uniqueRows.Contains(rowKey))
                 {
                     uniqueRows.Add(rowKey);
                     rowsToKeep.Add(row);
@@ -205,7 +223,33 @@ namespace CrawlyScraper.App
             newWorksheet.Name = worksheet.Name;
         }
 
+        private void EnsureHeaders(ExcelWorksheet worksheet)
+        {
+            var headers = new Dictionary<string, List<string>>
+    {
+        { "Products", new List<string> { "product_id", "name(en-gb)", "categories", "sku", "upc", "ean", "jan", "isbn", "mpn", "location", "quantity", "model", "manufacturer", "image_name", "shipping", "price", "points", "date_added", "date_modified", "date_available", "weight", "weight_unit", "length", "width", "height", "length_unit", "status", "tax_class_id", "description(en-gb)", "meta_title(en-gb)", "meta_description(en-gb)", "meta_keywords(en-gb)", "stock_status_id", "store_ids", "layout", "related_ids", "tags(en-gb)", "sort_order", "subtract", "minimum" } },
+        { "AdditionalImages", new List<string> { "product_id", "image", "sort_order" } },
+        { "Specials", new List<string> { "product_id", "customer_group", "priority", "price", "date_start", "date_end" } },
+        { "Discounts", new List<string> { "product_id", "customer_group", "quantity", "priority", "price", "date_start", "date_end" } },
+        { "Rewards", new List<string> { "product_id", "customer_group", "points" } },
+        { "ProductOptions", new List<string> { "product_id", "option", "default_option_value", "required" } },
+        { "ProductOptionValues", new List<string> { "product_id", "option", "option_value", "quantity", "subtract", "price", "price_prefix", "points", "points_prefix", "weight", "weight_prefix" } },
+        { "ProductAttributes", new List<string> { "product_id", "attribute_group", "attribute", "text(en-gb)" } },
+        { "ProductFilters", new List<string> { "product_id", "filter_group", "filter" } },
+        { "ProductSEOKeywords", new List<string> { "product_id", "store_id", "keyword(en-gb)" } }
+    };
 
-
+            if (headers.ContainsKey(worksheet.Name))
+            {
+                var headerList = headers[worksheet.Name];
+                for (int col = 1; col <= headerList.Count; col++)
+                {
+                    if (worksheet.Cells[1, col].Text != headerList[col - 1])
+                    {
+                        worksheet.Cells[1, col].Value = headerList[col - 1];
+                    }
+                }
+            }
+        }
     }
 }

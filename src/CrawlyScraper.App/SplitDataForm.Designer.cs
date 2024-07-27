@@ -85,7 +85,7 @@
             textBoxNumFiles.Name = "textBoxNumFiles";
             textBoxNumFiles.Size = new Size(100, 35);
             textBoxNumFiles.TabIndex = 4;
-            textBoxNumFiles.Text = "6";
+            textBoxNumFiles.Text = "150";
             // 
             // labelTargetFolder
             // 
@@ -102,7 +102,7 @@
             textBoxTargetFolder.Name = "textBoxTargetFolder";
             textBoxTargetFolder.Size = new Size(569, 35);
             textBoxTargetFolder.TabIndex = 6;
-            textBoxTargetFolder.Text = "G:\\My Drive\\Work\\DGIS\\Industry Cart\\industrybuying";
+            textBoxTargetFolder.Text = "G:\\My Drive\\Work\\DGIS\\Industry Cart\\industrybuying\\Splitted_Files";
             // 
             // buttonBrowseFolder
             // 
