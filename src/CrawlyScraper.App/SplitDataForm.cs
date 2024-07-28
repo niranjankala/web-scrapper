@@ -94,14 +94,13 @@ namespace CrawlyScraper.App
                             {
                                 // Process price column
                                 var priceCell = worksheet.Cells[row, 16];
-                                if (priceCell.Text.Contains(","))
+                                if (string.IsNullOrEmpty(priceCell.Text) || priceCell.Text == "N/A")
+                                {
+                                    priceCell.Value = 0;
+                                }
+                                else if (priceCell.Text.Contains(","))
                                 {
                                     priceCell.Value = priceCell.Text.Replace(",", "");
-                                }
-
-                                if (priceCell.Text == "N/A")
-                                {
-                                    priceCell.Value = "";
                                 }
 
                                 // Process weight column
@@ -114,7 +113,7 @@ namespace CrawlyScraper.App
                                     worksheet.Cells[row, 21].Value = long.Parse(weight); // Assuming weight is integer
                                     worksheet.Cells[row, 22].Value = unit; // Directly use the unit text
                                 }
-                                else if(worksheet.Cells[row, 21].Text == "Light Weight")
+                                else if (worksheet.Cells[row, 21].Text == "Light Weight")
                                 {
                                     worksheet.Cells[row, 21].Value = "";
                                 }
