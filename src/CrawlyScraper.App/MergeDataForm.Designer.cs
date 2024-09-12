@@ -47,28 +47,28 @@
             // lblCategoriesPath
             // 
             lblCategoriesPath.AutoSize = true;
-            lblCategoriesPath.Location = new Point(24, 21);
-            lblCategoriesPath.Margin = new Padding(6, 0, 6, 0);
+            lblCategoriesPath.Location = new Point(14, 10);
+            lblCategoriesPath.Margin = new Padding(4, 0, 4, 0);
             lblCategoriesPath.Name = "lblCategoriesPath";
-            lblCategoriesPath.Size = new Size(216, 30);
+            lblCategoriesPath.Size = new Size(123, 15);
             lblCategoriesPath.TabIndex = 0;
             lblCategoriesPath.Text = "Categories Excel Path:";
             // 
             // txtCategoriesPath
             // 
-            txtCategoriesPath.Location = new Point(24, 58);
-            txtCategoriesPath.Margin = new Padding(6, 7, 6, 7);
+            txtCategoriesPath.Location = new Point(14, 29);
+            txtCategoriesPath.Margin = new Padding(4, 4, 4, 4);
             txtCategoriesPath.Name = "txtCategoriesPath";
-            txtCategoriesPath.Size = new Size(596, 35);
+            txtCategoriesPath.Size = new Size(349, 23);
             txtCategoriesPath.TabIndex = 1;
             txtCategoriesPath.Text = "G:\\My Drive\\Work\\DGIS\\Industry Cart\\categories-2024-07-22.xlsx";
             // 
             // btnBrowseCategories
             // 
-            btnBrowseCategories.Location = new Point(636, 53);
-            btnBrowseCategories.Margin = new Padding(6, 7, 6, 7);
+            btnBrowseCategories.Location = new Point(371, 26);
+            btnBrowseCategories.Margin = new Padding(4, 4, 4, 4);
             btnBrowseCategories.Name = "btnBrowseCategories";
-            btnBrowseCategories.Size = new Size(150, 40);
+            btnBrowseCategories.Size = new Size(88, 26);
             btnBrowseCategories.TabIndex = 2;
             btnBrowseCategories.Text = "Browse...";
             btnBrowseCategories.UseVisualStyleBackColor = true;
@@ -77,28 +77,28 @@
             // lblCategoriesFolderPath
             // 
             lblCategoriesFolderPath.AutoSize = true;
-            lblCategoriesFolderPath.Location = new Point(24, 134);
-            lblCategoriesFolderPath.Margin = new Padding(6, 0, 6, 0);
+            lblCategoriesFolderPath.Location = new Point(14, 67);
+            lblCategoriesFolderPath.Margin = new Padding(4, 0, 4, 0);
             lblCategoriesFolderPath.Name = "lblCategoriesFolderPath";
-            lblCategoriesFolderPath.Size = new Size(226, 30);
+            lblCategoriesFolderPath.Size = new Size(129, 15);
             lblCategoriesFolderPath.TabIndex = 3;
             lblCategoriesFolderPath.Text = "Categories Folder Path:";
             // 
             // txtCategoriesFolderPath
             // 
-            txtCategoriesFolderPath.Location = new Point(24, 171);
-            txtCategoriesFolderPath.Margin = new Padding(6, 7, 6, 7);
+            txtCategoriesFolderPath.Location = new Point(14, 86);
+            txtCategoriesFolderPath.Margin = new Padding(4, 4, 4, 4);
             txtCategoriesFolderPath.Name = "txtCategoriesFolderPath";
-            txtCategoriesFolderPath.Size = new Size(596, 35);
+            txtCategoriesFolderPath.Size = new Size(349, 23);
             txtCategoriesFolderPath.TabIndex = 4;
             txtCategoriesFolderPath.Text = "G:\\My Drive\\Work\\DGIS\\Industry Cart\\industrybuying\\Categories";
             // 
             // btnBrowseFolder
             // 
-            btnBrowseFolder.Location = new Point(636, 166);
-            btnBrowseFolder.Margin = new Padding(6, 7, 6, 7);
+            btnBrowseFolder.Location = new Point(371, 83);
+            btnBrowseFolder.Margin = new Padding(4, 4, 4, 4);
             btnBrowseFolder.Name = "btnBrowseFolder";
-            btnBrowseFolder.Size = new Size(150, 40);
+            btnBrowseFolder.Size = new Size(88, 26);
             btnBrowseFolder.TabIndex = 5;
             btnBrowseFolder.Text = "Browse...";
             btnBrowseFolder.UseVisualStyleBackColor = true;
@@ -107,28 +107,28 @@
             // lblExportPath
             // 
             lblExportPath.AutoSize = true;
-            lblExportPath.Location = new Point(24, 247);
-            lblExportPath.Margin = new Padding(6, 0, 6, 0);
+            lblExportPath.Location = new Point(14, 124);
+            lblExportPath.Margin = new Padding(4, 0, 4, 0);
             lblExportPath.Name = "lblExportPath";
-            lblExportPath.Size = new Size(200, 30);
+            lblExportPath.Size = new Size(114, 15);
             lblExportPath.TabIndex = 6;
             lblExportPath.Text = "Exported Excel Path:";
             // 
             // txtExportPath
             // 
-            txtExportPath.Location = new Point(24, 284);
-            txtExportPath.Margin = new Padding(6, 7, 6, 7);
+            txtExportPath.Location = new Point(14, 142);
+            txtExportPath.Margin = new Padding(4, 4, 4, 4);
             txtExportPath.Name = "txtExportPath";
-            txtExportPath.Size = new Size(596, 35);
+            txtExportPath.Size = new Size(349, 23);
             txtExportPath.TabIndex = 7;
             txtExportPath.Text = "G:\\My Drive\\Work\\DGIS\\Industry Cart\\industrybuying\\products.xlsx";
             // 
             // btnBrowseExport
             // 
-            btnBrowseExport.Location = new Point(636, 279);
-            btnBrowseExport.Margin = new Padding(6, 7, 6, 7);
+            btnBrowseExport.Location = new Point(371, 140);
+            btnBrowseExport.Margin = new Padding(4, 4, 4, 4);
             btnBrowseExport.Name = "btnBrowseExport";
-            btnBrowseExport.Size = new Size(150, 40);
+            btnBrowseExport.Size = new Size(88, 25);
             btnBrowseExport.TabIndex = 8;
             btnBrowseExport.Text = "Browse...";
             btnBrowseExport.UseVisualStyleBackColor = true;
@@ -136,34 +136,34 @@
             // 
             // progressBar
             // 
-            progressBar.Location = new Point(24, 369);
-            progressBar.Margin = new Padding(6, 7, 6, 7);
+            progressBar.Location = new Point(14, 184);
+            progressBar.Margin = new Padding(4, 4, 4, 4);
             progressBar.Name = "progressBar";
-            progressBar.Size = new Size(762, 53);
+            progressBar.Size = new Size(444, 26);
             progressBar.TabIndex = 9;
             // 
             // statusBar
             // 
             statusBar.ImageScalingSize = new Size(28, 28);
             statusBar.Items.AddRange(new ToolStripItem[] { ProgressStatusLabel });
-            statusBar.Location = new Point(0, 563);
+            statusBar.Location = new Point(0, 279);
             statusBar.Name = "statusBar";
-            statusBar.Padding = new Padding(2, 0, 28, 0);
-            statusBar.Size = new Size(810, 39);
+            statusBar.Padding = new Padding(1, 0, 16, 0);
+            statusBar.Size = new Size(472, 22);
             statusBar.TabIndex = 10;
             // 
             // ProgressStatusLabel
             // 
             ProgressStatusLabel.Name = "ProgressStatusLabel";
-            ProgressStatusLabel.Size = new Size(28, 30);
+            ProgressStatusLabel.Size = new Size(16, 17);
             ProgressStatusLabel.Text = "...";
             // 
             // btnMergeData
             // 
-            btnMergeData.Location = new Point(316, 494);
-            btnMergeData.Margin = new Padding(6, 7, 6, 7);
+            btnMergeData.Location = new Point(184, 247);
+            btnMergeData.Margin = new Padding(4, 4, 4, 4);
             btnMergeData.Name = "btnMergeData";
-            btnMergeData.Size = new Size(150, 53);
+            btnMergeData.Size = new Size(88, 26);
             btnMergeData.TabIndex = 11;
             btnMergeData.Text = "Merge Data";
             btnMergeData.UseVisualStyleBackColor = true;
@@ -171,9 +171,9 @@
             // 
             // MergeDataForm
             // 
-            AutoScaleDimensions = new SizeF(12F, 30F);
+            AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(810, 602);
+            ClientSize = new Size(472, 301);
             Controls.Add(btnMergeData);
             Controls.Add(statusBar);
             Controls.Add(progressBar);
@@ -186,7 +186,7 @@
             Controls.Add(btnBrowseCategories);
             Controls.Add(txtCategoriesPath);
             Controls.Add(lblCategoriesPath);
-            Margin = new Padding(6, 7, 6, 7);
+            Margin = new Padding(4, 4, 4, 4);
             Name = "MergeDataForm";
             Text = "Category Data Merger";
             statusBar.ResumeLayout(false);

@@ -61,64 +61,7 @@ namespace CrawlyScraper.App
 
         private void SplitExcelData(string filePath, int numFiles, string targetFolder)
         {
-            Regex weightRegex = new Regex(@"(\d+)([a-zA-Z]+)");
-
-            try
-            {
-                using (var package = new ExcelPackage(new FileInfo(filePath)))
-                {
-                    var worksheets = package.Workbook.Worksheets;
-
-                    foreach (var worksheet in worksheets)
-                    {
-                        EnsureHeaders(worksheet);
-
-                        if (worksheet.Name == "ProductSEOKeywords")
-                        {
-                            RemoveInvalidAndDuplicateRows(worksheet, package.Workbook.Worksheets["Products"]);
-                        }
-
-                        var productsWorksheet = package.Workbook.Worksheets["Products"];
-                        if (productsWorksheet != null)
-                        {
-                            int rowCount = productsWorksheet.Dimension.Rows;
-
-                            for (int row = 2; row <= rowCount; row++)
-                            {
-                                // Remove commas from the price column
-                                string priceText = productsWorksheet.Cells[row, 16].Text.Replace(",", "");
-                                if (decimal.TryParse(priceText, out decimal price))
-                                {
-                                    productsWorksheet.Cells[row, 16].Value = price;
-                                }
-
-                                // Handle weight and unit
-                                var weightMatch = weightRegex.Match(productsWorksheet.Cells[row, 20].Text);
-                                if (weightMatch.Success)
-                                {
-                                    string weight = weightMatch.Groups[1].Value;
-                                    string unit = weightMatch.Groups[2].Value;
-
-                                    productsWorksheet.Cells[row, 20].Value = int.Parse(weight); // Assuming weight is integer
-                                    productsWorksheet.Cells[row, 21].Value = unit; // Directly use the unit text
-                                }
-                            }
-                        }
-
-                        SplitAndSave(worksheet, numFiles, targetFolder, filePath);
-                    }
-                }
-
-                MessageBox.Show("Data splitting completed.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void EnsureHeaders(ExcelWorksheet worksheet)
-        {
+            Regex weightRegex = new Regex(@"(\d+)( *[a-zA-Z]+)");
             var headers = new Dictionary<string, List<string>>
             {
                 { "Products", new List<string> { "product_id", "name(en-gb)", "categories", "sku", "upc", "ean", "jan", "isbn", "mpn", "location", "quantity", "model", "manufacturer", "image_name", "shipping", "price", "points", "date_added", "date_modified", "date_available", "weight", "weight_unit", "length", "width", "height", "length_unit", "status", "tax_class_id", "description(en-gb)", "meta_title(en-gb)", "meta_description(en-gb)", "meta_keywords(en-gb)", "stock_status_id", "store_ids", "layout", "related_ids", "tags(en-gb)", "sort_order", "subtract", "minimum" } },
@@ -133,6 +76,147 @@ namespace CrawlyScraper.App
                 { "ProductSEOKeywords", new List<string> { "product_id", "store_id", "keyword(en-gb)" } }
             };
 
+            try
+            {
+                using (var package = new ExcelPackage(new FileInfo(filePath)))
+                {
+                    var worksheets = package.Workbook.Worksheets.ToList();
+
+                    foreach (var worksheet in worksheets)
+                    {
+                        EnsureHeaders(worksheet, headers);
+
+                        if (worksheet.Name == "Products")
+                        {
+                            int rowCount = worksheet.Dimension.Rows;
+
+                            for (int row = 2; row <= rowCount; row++)
+                            {
+                                // Process price column
+                                var priceCell = worksheet.Cells[row, 16];
+                                if (string.IsNullOrEmpty(priceCell.Text) || priceCell.Text == "N/A")
+                                {
+                                    priceCell.Value = 0;
+                                }
+                                else if (priceCell.Text.Contains(","))
+                                {
+                                    priceCell.Value = priceCell.Text.Replace(",", "");
+                                }
+
+                                // Process weight column
+                                var weightMatch = weightRegex.Match(worksheet.Cells[row, 21].Text);
+                                if (weightMatch.Success)
+                                {
+                                    string weight = weightMatch.Groups[1].Value;
+                                    string unit = weightMatch.Groups[2].Value.Trim();
+
+                                    worksheet.Cells[row, 21].Value = long.Parse(weight); // Assuming weight is integer
+                                    worksheet.Cells[row, 22].Value = unit; // Directly use the unit text
+                                }
+                                else if (worksheet.Cells[row, 21].Text == "Light Weight")
+                                {
+                                    worksheet.Cells[row, 21].Value = "";
+                                }
+
+                                // Set store_ids to 0
+                                worksheet.Cells[row, 34].Value = 0;
+
+                                // Process length column
+                                var lengthCell = worksheet.Cells[row, 23];
+                                if (!decimal.TryParse(lengthCell.Text, out _))
+                                {
+                                    lengthCell.Value = 0;
+                                }
+
+                                // Process categories column
+                                var categoriesCell = worksheet.Cells[row, 3];
+                                var distinctCategories = string.Join(",", categoriesCell.Text.Split(',').Distinct());
+                                categoriesCell.Value = distinctCategories;
+                            }
+                        }
+
+                        if (worksheet.Name == "ProductSEOKeywords")
+                        {
+                            RemoveDuplicateKeywords(worksheet);
+                        }
+                    }
+
+                    var productsWorksheet = worksheets.FirstOrDefault(ws => ws.Name == "Products");
+                    if (productsWorksheet != null)
+                    {
+                        int rowCount = productsWorksheet.Dimension.Rows;
+                        int rowsPerFile = (int)Math.Ceiling((double)(rowCount - 1) / numFiles);
+
+                        for (int fileIndex = 0; fileIndex < numFiles; fileIndex++)
+                        {
+                            var newPackage = new ExcelPackage();
+                            var productIDs = new HashSet<string>();
+
+                            // Split Products sheet
+                            foreach (var worksheet in worksheets)
+                            {
+                                var newWorksheet = newPackage.Workbook.Worksheets.Add(worksheet.Name);
+
+                                // Copy headers
+                                for (int col = 1; col <= worksheet.Dimension.Columns; col++)
+                                {
+                                    newWorksheet.Cells[1, col].Value = worksheet.Cells[1, col].Value;
+                                }
+
+                                if (worksheet.Name == "Products")
+                                {
+                                    int startRow = (fileIndex * rowsPerFile) + 2;
+                                    int endRow = (fileIndex == numFiles - 1) ? rowCount : startRow + rowsPerFile - 1;
+
+                                    for (int row = startRow; row <= endRow; row++)
+                                    {
+                                        productIDs.Add(worksheet.Cells[row, 1].Text);
+
+                                        for (int col = 1; col <= worksheet.Dimension.Columns; col++)
+                                        {
+                                            newWorksheet.Cells[row - startRow + 2, col].Value = worksheet.Cells[row, col].Value;
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    // Filter rows by product_id for other sheets
+                                    int newRowIdx = 2; // Start from the second row
+                                    for (int row = 2; row <= worksheet.Dimension.Rows; row++)
+                                    {
+                                        if (productIDs.Contains(worksheet.Cells[row, 1].Text))
+                                        {
+                                            for (int col = 1; col <= worksheet.Dimension.Columns; col++)
+                                            {
+                                                newWorksheet.Cells[newRowIdx, col].Value = worksheet.Cells[row, col].Value;
+                                            }
+                                            newRowIdx++; // Increment the new row index
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Save new file
+                            var newFilePath = Path.Combine(targetFolder, $"{Path.GetFileNameWithoutExtension(filePath)}_part{fileIndex + 1}.xlsx");
+                            newPackage.SaveAs(new FileInfo(newFilePath));
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Products sheet not found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+
+                MessageBox.Show("Data splitting completed.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void EnsureHeaders(ExcelWorksheet worksheet, Dictionary<string, List<string>> headers)
+        {
             if (headers.ContainsKey(worksheet.Name))
             {
                 var headerList = headers[worksheet.Name];
@@ -146,62 +230,20 @@ namespace CrawlyScraper.App
             }
         }
 
-        private void RemoveInvalidAndDuplicateRows(ExcelWorksheet worksheet, ExcelWorksheet productsWorksheet)
+        private void RemoveDuplicateKeywords(ExcelWorksheet worksheet)
         {
-            var validProductIds = new HashSet<string>();
-            for (int row = 2; row <= productsWorksheet.Dimension.Rows; row++)
-            {
-                validProductIds.Add(productsWorksheet.Cells[row, 1].Text);
-            }
-
-            var seenRows = new HashSet<string>();
+            var seenKeywords = new HashSet<string>();
             for (int row = worksheet.Dimension.Rows; row >= 2; row--)
             {
-                var productId = worksheet.Cells[row, 1].Text;
-                var rowValues = string.Join(",", worksheet.Cells[row, 1, row, worksheet.Dimension.Columns].Select(c => c.Text));
-
-                if (!validProductIds.Contains(productId) || seenRows.Contains(rowValues))
+                var keyword = worksheet.Cells[row, 3].Text;
+                if (seenKeywords.Contains(keyword))
                 {
                     worksheet.DeleteRow(row);
                 }
                 else
                 {
-                    seenRows.Add(rowValues);
+                    seenKeywords.Add(keyword);
                 }
-            }
-        }
-
-        private void SplitAndSave(ExcelWorksheet worksheet, int numFiles, string targetFolder, string filePath)
-        {
-            int rowCount = worksheet.Dimension.Rows;
-            int rowsPerFile = (rowCount - 1) / numFiles; // excluding header row
-
-            for (int fileIndex = 0; fileIndex < numFiles; fileIndex++)
-            {
-                var newPackage = new ExcelPackage();
-                var newWorksheet = newPackage.Workbook.Worksheets.Add(worksheet.Name);
-
-                // Copy headers
-                for (int col = 1; col <= worksheet.Dimension.Columns; col++)
-                {
-                    newWorksheet.Cells[1, col].Value = worksheet.Cells[1, col].Value;
-                }
-
-                // Copy data
-                int startRow = (fileIndex * rowsPerFile) + 2;
-                int endRow = (fileIndex == numFiles - 1) ? rowCount : startRow + rowsPerFile - 1;
-
-                for (int row = startRow; row <= endRow; row++)
-                {
-                    for (int col = 1; col <= worksheet.Dimension.Columns; col++)
-                    {
-                        newWorksheet.Cells[row - startRow + 2, col].Value = worksheet.Cells[row, col].Value;
-                    }
-                }
-
-                // Save new file
-                var newFilePath = Path.Combine(targetFolder, $"{Path.GetFileNameWithoutExtension(filePath)}_part{fileIndex + 1}.xlsx");
-                newPackage.SaveAs(new FileInfo(newFilePath));
             }
         }
     }

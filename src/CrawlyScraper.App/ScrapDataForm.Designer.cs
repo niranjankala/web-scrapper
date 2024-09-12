@@ -25,6 +25,7 @@
             progressBar = new ProgressBar();
             btnMergeData = new Button();
             SplitDataButton = new Button();
+            CategoryDataButton = new Button();
             btnProcessProducts = new Button();
             SuspendLayout();
             // 
@@ -89,7 +90,7 @@
             // 
             // button1
             // 
-            button1.Location = new Point(549, 346);
+            button1.Location = new Point(406, 346);
             button1.Name = "button1";
             button1.Size = new Size(138, 23);
             button1.TabIndex = 6;
@@ -109,7 +110,7 @@
             // 
             btnMergeData.Location = new Point(12, 346);
             btnMergeData.Name = "btnMergeData";
-            btnMergeData.Size = new Size(175, 23);
+            btnMergeData.Size = new Size(75, 23);
             btnMergeData.TabIndex = 8;
             btnMergeData.Text = "Merge";
             btnMergeData.UseVisualStyleBackColor = true;
@@ -117,17 +118,27 @@
             // 
             // SplitDataButton
             // 
-            SplitDataButton.Location = new Point(193, 346);
+            SplitDataButton.Location = new Point(93, 346);
             SplitDataButton.Name = "SplitDataButton";
-            SplitDataButton.Size = new Size(175, 23);
+            SplitDataButton.Size = new Size(73, 23);
             SplitDataButton.TabIndex = 8;
             SplitDataButton.Text = "Split Data";
             SplitDataButton.UseVisualStyleBackColor = true;
             SplitDataButton.Click += SplitDataButton_Click;
             // 
+            // CategoryDataButton
+            // 
+            CategoryDataButton.Location = new Point(551, 346);
+            CategoryDataButton.Name = "CategoryDataButton";
+            CategoryDataButton.Size = new Size(138, 23);
+            CategoryDataButton.TabIndex = 9;
+            CategoryDataButton.Text = "Create Categories Data";
+            CategoryDataButton.UseVisualStyleBackColor = true;
+            CategoryDataButton.Click += CategoryDataButton_Click;
+            // 
             // btnProcessProducts
             // 
-            btnProcessProducts.Location = new Point(405, 346);
+            btnProcessProducts.Location = new Point(262, 346);
             btnProcessProducts.Name = "btnProcessProducts";
             btnProcessProducts.Size = new Size(138, 23);
             btnProcessProducts.TabIndex = 9;
@@ -140,6 +151,7 @@
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(700, 374);
+            Controls.Add(CategoryDataButton);
             Controls.Add(btnProcessProducts);
             Controls.Add(SplitDataButton);
             Controls.Add(btnMergeData);
@@ -168,6 +180,7 @@
         private ProgressBar progressBar;
         private Button btnMergeData;
         private Button SplitDataButton;
+        private Button CategoryDataButton;
         private Button btnProcessProducts;
     }
 }

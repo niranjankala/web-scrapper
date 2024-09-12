@@ -978,7 +978,12 @@ namespace CrawlyScraper
             form.ShowDialog();
         }
 
-
+        private void CategoryDataButton_Click(object sender, EventArgs e)
+        {
+            CategoriesCrowlerForm form = new CategoriesCrowlerForm();
+            form.StartPosition = FormStartPosition.CenterParent;
+            form.ShowDialog();
+        }
     }
     public class ChildCategory
     {
