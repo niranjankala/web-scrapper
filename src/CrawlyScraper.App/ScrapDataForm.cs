@@ -70,7 +70,7 @@ namespace CrawlyScraper
             //List<Product> products = await GetProductsAsync(baseUrl, pages);
             //// Ask the user to select a directory to save images
             //// Download images
-            //await DownloadImagesAsync(products, targetDirectory);
+            //await DownloadProductImagesAsync(products, targetDirectory);
 
             //await GenerateExcelFileAsync(products, categoriesFilePath);
 
@@ -186,7 +186,7 @@ namespace CrawlyScraper
                 var products = await GetProductsAsync(baseUrl, pages, progressReporter);
                 progressReporter.ReportProgress(new ProgressInfo() { Value = 33, Message = $"Fetched products for {baseUrl}" });
 
-                await DownloadImagesAsync(products, targetDirectory, progressReporter);
+                await DownloadProductImagesAsync(products, targetDirectory, progressReporter);
                 progressReporter.ReportProgress(new ProgressInfo() { Value = 66, Message = $"Product images download completed for {baseUrl}" });
 
                 await GenerateExcelFileAsync(products, excelFilePath, progressReporter);
@@ -537,7 +537,7 @@ namespace CrawlyScraper
         }
 
 
-        private async Task DownloadImagesAsync(List<Product> products, string targetDirectory, ProgressReporter progressReporter)
+        private async Task DownloadProductImagesAsync(List<Product> products, string targetDirectory, ProgressReporter progressReporter)
         {
             List<string> allDownloadImages = products.SelectMany(p => p.DownloadImages)
                                                     .Where(di => !string.IsNullOrWhiteSpace(di) && di != "N/A")
@@ -621,6 +621,7 @@ namespace CrawlyScraper
             }
         }
 
+
         private string GetRelativePathFromUrl(string url)
         {
             // This method will convert the URL to a relative path
@@ -671,9 +672,171 @@ namespace CrawlyScraper
             public string NameofManufacturer_Packer_Importer { get; set; }
 
         }
-
         private async void btnProcessCategories_Click(object sender, EventArgs e)
         {
+            List<Category> categories = new List<Category>();
+            string websiteUrl = "https://www.industrybuying.com";
+            string path = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            var directory = System.IO.Path.GetDirectoryName(path);
+
+            string targetDirectory = string.Empty;
+            using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
+            {
+                if (folderDialog.ShowDialog() == DialogResult.OK)
+                {
+                    targetDirectory = folderDialog.SelectedPath;
+                }
+            }
+            int categoryId = 1;
+            int parentCategorySortOrder = 0;
+            int childCategorySortOrder = 0;
+
+            if (!string.IsNullOrEmpty(targetDirectory))
+            {
+                string[] categoryUrls = File.ReadAllLines($"{directory}\\App_Data\\categories.txt");
+                List<Product> products = new List<Product>();
+                var progress = new Progress<ProgressInfo>(UpdateProgressBar);
+                var progressReporter = new ProgressReporter(progress);
+
+                foreach (var item in categoryUrls)
+                {
+                    if (item.StartsWith("#"))
+                        continue;
+                    string[] lookup = item.Split('|');
+                    string parentCategoryName = lookup[0];
+                    string parentUrl = lookup[1];
+
+                    string categoryImageDirectory = parentCategoryName.Replace("&amp", "").Replace("  ", " ").Replace(" ", "_").ToLower();
+
+                    string categoryDirectory = Path.Combine(targetDirectory, categoryImageDirectory);
+
+                    if (!Directory.Exists(categoryDirectory))
+                    {
+                        Directory.CreateDirectory(categoryDirectory);
+                    }
+                    Category parentCategory = new Category()
+                    {
+                        CategoryId = (++categoryId).ToString(),
+                        Name = parentCategoryName,
+                        ParentId = "0",
+                        Columns = "1",
+                        SortOrder = (++parentCategorySortOrder).ToString(),
+                        Top = "1"
+
+                    };
+                    categories.Add(parentCategory);
+                    var childCategories = await GetChildCategoriesDetail(parentUrl);
+                    foreach (var childCategory in childCategories)
+                    {
+                        
+                        
+                        try
+                        {
+                            Category subCategory = new Category()
+                            {
+                                CategoryId = (++categoryId).ToString(),
+                                Name = childCategory.Name,
+                                ParentId = parentCategory.ParentId,
+                                Columns = "0",
+                                SortOrder = (++childCategorySortOrder).ToString(),
+                                Top = "0"
+                            };                            
+                            categories.Add(subCategory);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error: {ex.Message}");
+                        }
+                    }
+                }
+
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 66, Message = $"Downloading category images..." });
+
+
+                           
+                await DownloadProductImagesAsync(products, targetDirectory, progressReporter);
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 100, Message = $"Product category download completed" });
+            }
+        }
+        private async Task DownloadCategoryImagesAsync(List<ChildCategory> products, string targetDirectory, ProgressReporter progressReporter)
+        {
+            List<string> allDownloadImages = products.Select(p => p.ImageUrl)
+                                                    .Where(di => !string.IsNullOrWhiteSpace(di) && di != "N/A")
+                                                    .ToList();
+
+            allDownloadImages = allDownloadImages.GroupBy(imgUrl => imgUrl).Select(urlGrp => urlGrp.Key).ToList();
+
+            //Remove all already downloaded files
+            //allDownloadImages.RemoveAll(imageUrl =>
+            //{
+            //    string relativePath = GetRelativePathFromUrl(imageUrl);
+            //    string fullPath = Path.Combine(targetDirectory, relativePath);
+
+            //    return File.Exists(fullPath);
+            //});
+
+            await DownloadCategoryImagesParallelAsync(allDownloadImages, targetDirectory, progressReporter);
+        }
+        private async Task DownloadCategoryImagesParallelAsync(List<string> downloadImages, string targetDirectory, ProgressReporter progressReporter)
+        {
+            int totalImages = downloadImages.Count;
+            int completedImages = 0;
+            using (HttpClient client = new HttpClient())
+            {
+                // Ensure the target directory exists
+                Directory.CreateDirectory(targetDirectory);
+
+                // Use SemaphoreSlim to control the number of concurrent HttpClient requests
+                SemaphoreSlim semaphore = new SemaphoreSlim(10); // Adjust the concurrency limit as needed
+
+                // Create tasks for downloading images
+                List<Task> downloadTasks = new List<Task>();
+
+                foreach (var downloadImage in downloadImages)
+                {
+                    await semaphore.WaitAsync(); // Wait until semaphore allows
+                    downloadTasks.Add(DownloadCategoryImageAsync(downloadImage, targetDirectory, client, semaphore));
+                }
+
+                // Wait for all download tasks to complete
+                await Task.WhenAll(downloadTasks);
+            }
+        }
+
+        private async Task DownloadCategoryImageAsync(string imageUrl, string targetDirectory, HttpClient client, SemaphoreSlim semaphore)
+        {
+            try
+            {
+                string relativePath = GetRelativePathFromUrl(imageUrl);
+                string fullPath = Path.Combine(targetDirectory, relativePath);
+
+                // Ensure the directory exists
+                string directoryPath = Path.GetDirectoryName(fullPath);
+
+                Directory.CreateDirectory(directoryPath);
+
+                using (HttpResponseMessage response = await client.GetAsync(imageUrl))
+                {
+                    response.EnsureSuccessStatusCode();
+
+                    byte[] imageBytes = await response.Content.ReadAsByteArrayAsync();
+
+                    await File.WriteAllBytesAsync(fullPath, imageBytes);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log or handle the exception appropriately
+                //MessageBox.Show($"Error downloading image {imageUrl}: {ex.Message}");
+            }
+            finally
+            {
+                semaphore.Release(); // Release semaphore after task completes
+            }
+        }
+
+        private async void btnProcessProducts_Click(object sender, EventArgs e)
+        { 
             string websiteUrl = "https://www.industrybuying.com";
             string path = System.Reflection.Assembly.GetExecutingAssembly().Location;
             var directory = System.IO.Path.GetDirectoryName(path);
@@ -731,7 +894,7 @@ namespace CrawlyScraper
                 StringBuilder sb = new StringBuilder();
                 products.SelectMany(p => p.DownloadImages).ToList().ForEach(p => sb.AppendLine($"{p}{Environment.NewLine}"));
                 File.WriteAllText(Path.Join(targetDirectory, "ProductImages.txt"), sb.ToString());
-                await DownloadImagesAsync(products, targetDirectory, progressReporter);
+                await DownloadProductImagesAsync(products, targetDirectory, progressReporter);
                 progressReporter.ReportProgress(new ProgressInfo() { Value = 100, Message = $"Product images download completed" });
             }
         }
@@ -754,9 +917,12 @@ namespace CrawlyScraper
                         var nameNode = node.SelectSingleNode(".//p[@class='productTitle']/a");
                         var urlNode = nameNode;
                         var productCountNode = nameNode.SelectSingleNode(".//span");
-
+                        var imageNode = node.SelectSingleNode(".//div[@class='productBox']//img[contains(@class,'AH_LazyLoadImg')]");
                         string name = nameNode?.InnerText.Split('(')[0].Trim();
                         string url = urlNode?.GetAttributeValue("href", "").Trim();
+
+                        string imageUrl = imageNode != null ? imageNode.GetAttributeValue("data-original", "N/A") : "N/A";
+                        imageUrl = imageUrl.Replace(@"//", "https://");
                         int productCount = productCountNode != null ? int.Parse(productCountNode.InnerText.Trim('(', ')', ' ')) : 0;
 
                         if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(url))
@@ -765,8 +931,9 @@ namespace CrawlyScraper
                             {
                                 Name = name,
                                 Url = url,
+                                ImageUrl = imageUrl,                                
                                 ProductCount = productCount
-                            });
+                            }) ;
                         }
                     }
                 }
@@ -810,12 +977,15 @@ namespace CrawlyScraper
             form.StartPosition = FormStartPosition.CenterParent;
             form.ShowDialog();
         }
+
+
     }
     public class ChildCategory
     {
         public string Name { get; set; }
         public string Url { get; set; }
         public int ProductCount { get; set; }
+        public string ImageUrl { get; set; }
     }
 
     public class ProgressReporter
