@@ -202,7 +202,7 @@
             Margin = new Padding(5, 6, 5, 6);
             Name = "CategoriesCrowlerForm";
             Text = "CategoriesCrowlerForm";
-            Load += CategoriesCrowlerForm_Load;
+            Load += CategoriesCrawlerForm_Load;
             statusBar.ResumeLayout(false);
             statusBar.PerformLayout();
             ResumeLayout(false);
