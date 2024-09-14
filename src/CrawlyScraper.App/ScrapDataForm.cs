@@ -24,6 +24,8 @@ namespace CrawlyScraper
     public partial class ScrapDataForm : Form
     {
         private const int RetryCount = 5;
+        private const string crawlingWebsiteUrl = "https://www.industrybuying.com";
+        private const string noImageUrl = "/static/images/image_not_available.jpg";
         public ScrapDataForm()
         {
             InitializeComponent();
@@ -673,8 +675,7 @@ namespace CrawlyScraper
 
         }
         private async void btnProcessProducts_Click(object sender, EventArgs e)
-        { 
-            string websiteUrl = "https://www.industrybuying.com";
+        {            
             string path = System.Reflection.Assembly.GetExecutingAssembly().Location;
             var directory = System.IO.Path.GetDirectoryName(path);
 
@@ -716,7 +717,7 @@ namespace CrawlyScraper
                         string filePath = Path.Combine(categoryDirectory, $"{childCategory.Name}.xlsx");
                         try
                         {
-                            products.AddRange(await ScrapCategoryDataAsync($"{websiteUrl}{childCategory.Url}", pages, categoryDirectory, filePath, progressReporter));
+                            products.AddRange(await ScrapCategoryDataAsync($"{crawlingWebsiteUrl}{childCategory.Url}", pages, categoryDirectory, filePath, progressReporter));
                         }
                         catch (Exception ex)
                         {

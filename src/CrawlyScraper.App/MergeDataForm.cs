@@ -205,6 +205,11 @@ namespace CrawlyScraper.App
             {
                 var parentDir = Path.Combine(directoryPath, parentCategory.Name);
                 if (!Directory.Exists(parentDir))
+                    parentDir = Path.Combine(directoryPath, parentCategory.Name.Replace("&", "&amp;"));
+                if (!Directory.Exists(parentDir))
+                    parentDir = Path.Combine(directoryPath, parentCategory.Name.Replace("&amp;", "&"));
+
+                if (!Directory.Exists(parentDir))
                     return;
 
                 var categoryCounter = 0;
@@ -215,6 +220,9 @@ namespace CrawlyScraper.App
                     {
                         childFilePath = Path.Combine(parentDir, $"{category.Name.Trim().Replace("&", "&amp;")}.xlsx");
                         if (!File.Exists(childFilePath))
+                            childFilePath = Path.Combine(parentDir, $"{category.Name.Trim().Replace("&amp;", "&")}.xlsx");
+
+                        if (!File.Exists(childFilePath))
                             continue;
                     }
 
@@ -224,7 +232,13 @@ namespace CrawlyScraper.App
                     {
                         foreach (var product in products)
                         {
-                            var existingProduct = mergedProducts.FirstOrDefault(p => p["Product Name"] == product["Product Name"] && p["Product Link"] == product["Product Link"]);
+                            var existingProduct = mergedProducts
+                            .FirstOrDefault(p => (p["Product Name"] == product["Product Name"]
+                            || (p["Product Name"].ToLower() == product["Product Name"].ToLower().Replace("&amp;", "&"))
+                            || (p["Product Name"].ToLower().Replace("&amp;", "&") == product["Product Name"].ToLower())
+
+                            )
+                            && p["Product Link"] == product["Product Link"]);
                             if (existingProduct != null)
                             {
                                 string[] existingCategories = existingProduct["Categories"].Split(",");
