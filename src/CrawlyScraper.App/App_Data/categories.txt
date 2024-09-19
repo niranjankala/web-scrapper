@@ -1,29 +1,27 @@
-#Agriculture Garden & Landscaping|https://www.industrybuying.com/agriculture-garden-landscaping-2384/
-#Electrical|https://www.industrybuying.com/electrical-639/
-#Office Supplies|https://www.industrybuying.com/office-supplies-3227/
+Agriculture Garden & Landscaping|https://www.industrybuying.com/agriculture-garden-landscaping-2384/
 Material Handling and Packaging|https://www.industrybuying.com/material-handling-and-packaging-1153/
-#Power Tools|https://www.industrybuying.com/power-tools-641/
-#Hand Tools|https://www.industrybuying.com/hand-tools-629/
-#Pumps|https://www.industrybuying.com/pumps-1160/
-#Furniture Hospitality and Food Service|https://www.industrybuying.com/furniture-hospitality-and-food-service-3744/
-#Cleaning|https://www.industrybuying.com/cleaning-1550/
-#Testing and Measuring Instruments|https://www.industrybuying.com/testing-and-measuring-instruments-2324/
-#IT & Electronics|https://www.industrybuying.com/it-electronics-3369/
-#Automotive Maintenance and Lubricants|https://www.industrybuying.com/automotive-maintenance-and-lubricants-2886/
-#Safety|https://www.industrybuying.com/safety-1224/
-#Hydraulics and Pneumatics|https://www.industrybuying.com/hydraulics-and-pneumatics-1139/
-#Lab Supplies|https://www.industrybuying.com/lab-supplies-2529/
-#Adhesives Sealants and Tape|https://www.industrybuying.com/adhesives-sealants-and-tape-2595/
-#Medical Supplies & Equipment|https://www.industrybuying.com/medical-supplies-equipment-4913/
-#Motors & Power Transmission|https://www.industrybuying.com/motors-power-transmission-548/
-#Welding|https://www.industrybuying.com/welding-552/
-#Security|https://www.industrybuying.com/security-5427/
-#Industrial Automation|https://www.industrybuying.com/industrial-automation-2325/
-#Solar|https://www.industrybuying.com/solar-4050/
-#Plumbing|https://www.industrybuying.com/plumbing-1135/
-#Hardware|https://www.industrybuying.com/hardware-15508/
-#Tooling and Cutting|https://www.industrybuying.com/tooling-and-cutting-638/
-#LED & Lights|https://www.industrybuying.com/led-lights-13759/
-#Abrasives|https://www.industrybuying.com/abrasives-642/
-#Bearings|https://www.industrybuying.com/bearings-2475/
-#Fasteners|https://www.industrybuying.com/fasteners-640/
+Office Supplies|https://www.industrybuying.com/office-supplies-3227/
+Power Tools|https://www.industrybuying.com/power-tools-641/
+Electrical|https://www.industrybuying.com/electrical-639/
+Hand Tools|https://www.industrybuying.com/hand-tools-629/
+Furniture, Hospitality and Food Service|https://www.industrybuying.com/furniture-hospitality-and-food-service-3744/
+Cleaning|https://www.industrybuying.com/cleaning-1550/
+Testing and Measuring Instruments|https://www.industrybuying.com/testing-and-measuring-instruments-2324/
+Pumps|https://www.industrybuying.com/pumps-1160/
+IT Security|https://www.industrybuying.com/it-security-3369/
+Safety|https://www.industrybuying.com/safety-1224/
+Hydraulics and Pneumatics|https://www.industrybuying.com/hydraulics-and-pneumatics-1139/
+Automotive Maintenance and Lubricants|https://www.industrybuying.com/automotive-maintenance-and-lubricants-2886/
+Welding|https://www.industrybuying.com/welding-552/
+Adhesives Sealants and Tape|https://www.industrybuying.com/adhesives-sealants-and-tape-2595/
+Lab Supplies|https://www.industrybuying.com/lab-supplies-2529/
+Medical Supplies & Equipment|https://www.industrybuying.com/medical-supplies-equipment-4913/
+Motors & Power Transmission|https://www.industrybuying.com/motors-power-transmission-548/
+Industrial Automation|https://www.industrybuying.com/industrial-automation-2325/
+Solar|https://www.industrybuying.com/solar-4050/
+LED & Lights|https://www.industrybuying.com/led-lights-13759/
+Plumbing|https://www.industrybuying.com/plumbing-1135/
+Tooling and Cutting|https://www.industrybuying.com/tooling-and-cutting-638/
+Abrasives|https://www.industrybuying.com/abrasives-642/
+Hardware|https://www.industrybuying.com/hardware-15508/
+Bearings|https://www.industrybuying.com/bearings-2475/
