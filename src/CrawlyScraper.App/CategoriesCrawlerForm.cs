@@ -69,95 +69,125 @@ namespace CrawlyScraper.App
 
         private async void ProcessCategoriesButton_Click(object sender, EventArgs e)
         {
+            // Initialize categories list
             List<Category> categories = new List<Category>();
             string path = System.Reflection.Assembly.GetExecutingAssembly().Location;
             var directory = System.IO.Path.GetDirectoryName(path);
 
-            string targetDirectory = txtImageExportPath.Text;
+            // Paths from UI
+            string imagesExportPath = txtImageExportPath.Text;
+            string exportPath = txtExportPath.Text;
 
-            int categoryId = 1;
+            int categoryId = 0;
             int parentCategorySortOrder = 0;
             int childCategorySortOrder = 0;
 
-            if (!string.IsNullOrEmpty(targetDirectory))
+            if (!string.IsNullOrEmpty(imagesExportPath))
             {
+                // Step 1: Load category URLs from the text file
                 string[] categoryUrls = File.ReadAllLines($"{directory}\\App_Data\\categories.txt");
+
                 var progress = new Progress<ProgressInfo>(UpdateProgressBar);
                 var progressReporter = new ProgressReporter(progress);
-                // Create tasks for downloading images
+
+                // Create a list to manage the tasks for downloading images
                 List<Task> downloadTasks = new List<Task>();
+
+                // Iterate through category URLs
                 foreach (var item in categoryUrls)
                 {
-                    if (item.StartsWith("#"))
-                        continue;
+                    if (item.StartsWith("#")) continue;
+
                     string[] lookup = item.Split('|');
                     string parentCategoryName = lookup[0];
                     string parentUrl = lookup[1];
 
-                    string categoryImageDirectory = parentCategoryName.Replace("&amp;", "").Replace("&", "").Replace("  ", " ").Replace(" ", "-").ToLower();
+                    // Step 2: Crawl the parent and its subcategories
+                    string categoryImageDirectory = SanitizeDirectoryName(parentCategoryName);
+                    string categoryDirectory = Path.Combine(imagesExportPath, categoryImageDirectory);
 
-                    string categoryDirectory = Path.Combine(targetDirectory, categoryImageDirectory);
+                    // Create directory for parent category if not exists
+                    Directory.CreateDirectory(categoryDirectory);
 
-                    if (!Directory.Exists(categoryDirectory))
-                    {
-                        Directory.CreateDirectory(categoryDirectory);
-                    }
+                    // Add parent category
                     Category parentCategory = new Category()
                     {
                         CategoryId = (++categoryId).ToString(),
                         Name = parentCategoryName,
-                        ParentId = "0",
+                        ParentId = "0", // It's a parent category
                         Columns = "1",
                         SortOrder = (++parentCategorySortOrder).ToString(),
-                        Top = "1"
-
+                        Top = "1",
+                        Layout = "", // Layout for parent category,
+                        StoreIds = "0",
+                        MetaTitle = parentCategoryName,
+                        Status = "true"
                     };
                     categories.Add(parentCategory);
+                    childCategorySortOrder = 0;
+                    // Fetch subcategories from parent URL
                     var childCategories = await GetChildCategoriesDetail(parentUrl);
                     foreach (var childCategory in childCategories)
                     {
-
                         try
                         {
+                            // Process child category image path
                             string imagePath = "";
                             string imageFileName = GetFileNameFromUrl(childCategory.ImageUrl);
-                            string childCategoryImageDirectory = childCategory.Name.Replace("&amp;", "").Replace("&", "").Replace("  ", " ").Replace(" ", "-").ToLower();
-                            string imageExportPath = Path.Join(targetDirectory, categoryImageDirectory, childCategoryImageDirectory, imageFileName);
+                            string childCategoryImageDirectory = SanitizeDirectoryName(childCategory.Name);
+                            string imageExportPath = Path.Join(imagesExportPath, categoryImageDirectory, childCategoryImageDirectory, imageFileName);
+
                             if (!string.IsNullOrEmpty(childCategory.ImageUrl))
                             {
                                 imagePath = $"catalog/default/category/{categoryImageDirectory}/{childCategoryImageDirectory}/{imageFileName}";
                             }
 
+                            // Add child category
                             Category subCategory = new Category()
                             {
                                 CategoryId = (++categoryId).ToString(),
                                 Name = childCategory.Name,
-                                ParentId = parentCategory.ParentId,
-                                Columns = "0",
+                                ParentId = parentCategory.CategoryId, // Set parent ID
+                                Columns = "0", // Child category
                                 SortOrder = (++childCategorySortOrder).ToString(),
-                                Top = "0",
-                                Image = imagePath
+                                Top = "0", // Child categories aren't top-level
+                                Image = imagePath,
+                                Layout = "0:Category", // Child categories have layout
+                                StoreIds = "0",
+                                MetaTitle = childCategory.Name,
+                                Status = "true"
                             };
-
                             categories.Add(subCategory);
 
+                            // Add image download task
                             downloadTasks.Add(DownloadCategoryImageAsync(childCategory.ImageUrl, imageExportPath));
-
                         }
                         catch (Exception ex)
                         {
                             Console.WriteLine($"Error: {ex.Message}");
                         }
                     }
+
+                    // Update progress
+                    progressReporter.ReportProgress(new ProgressInfo() { Value = 50, Message = $"Processed category: {parentCategoryName}" });
                 }
 
-                progressReporter.ReportProgress(new ProgressInfo() { Value = 66, Message = $"Downloading category images..." });
+                // Step 3: Export categories to Excel with three sheets
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 75, Message = "Exporting categories to Excel..." });
+                await ExportCategoriesToExcelAsync(categories, exportPath, progress);
 
-                // Wait for all download tasks to complete
+                // Step 4: Download category images
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 85, Message = "Downloading category images..." });
                 await Task.WhenAll(downloadTasks);
 
+                // Complete progress
+                progressReporter.ReportProgress(new ProgressInfo() { Value = 100, Message = "Category processing completed." });
 
-                progressReporter.ReportProgress(new ProgressInfo() { Value = 100, Message = $"Product category download completed" });
+                MessageBox.Show("Categories processed and exported successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("Please specify the target directory for images.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         private async void UpdateCategoriesButton_Click(object sender, EventArgs e)
@@ -296,85 +326,107 @@ namespace CrawlyScraper.App
 
                 using (var package = new ExcelPackage())
                 {
-                    // Create a new worksheet
-                    ExcelWorksheet worksheet = package.Workbook.Worksheets.Add("Categories");
+                    // Step 1: Create the "Categories" worksheet
+                    ExcelWorksheet categoriesSheet = package.Workbook.Worksheets.Add("Categories");
 
-                    // Write headers matching the imported Excel file structure
-                    worksheet.Cells[1, 1].Value = "category_id";
-                    worksheet.Cells[1, 2].Value = "parent_id";
-                    worksheet.Cells[1, 3].Value = "name(en-gb)";
-                    worksheet.Cells[1, 4].Value = "top";
-                    worksheet.Cells[1, 5].Value = "columns";
-                    worksheet.Cells[1, 6].Value = "sort_order";
-                    worksheet.Cells[1, 7].Value = "image_name"; // This is the updated image path
-                    worksheet.Cells[1, 8].Value = "date_added";
-                    worksheet.Cells[1, 9].Value = "date_modified";
-                    worksheet.Cells[1, 10].Value = "description(en-gb)";
-                    worksheet.Cells[1, 11].Value = "meta_title(en-gb)";
-                    worksheet.Cells[1, 12].Value = "meta_description(en-gb)";
-                    worksheet.Cells[1, 13].Value = "meta_keywords(en-gb)";
-                    worksheet.Cells[1, 14].Value = "store_ids";
-                    worksheet.Cells[1, 15].Value = "layout";
-                    worksheet.Cells[1, 16].Value = "status";
+                    // Write headers for the Categories sheet
+                    categoriesSheet.Cells[1, 1].Value = "category_id";
+                    categoriesSheet.Cells[1, 2].Value = "parent_id";
+                    categoriesSheet.Cells[1, 3].Value = "name(en-gb)";
+                    categoriesSheet.Cells[1, 4].Value = "top";
+                    categoriesSheet.Cells[1, 5].Value = "columns";
+                    categoriesSheet.Cells[1, 6].Value = "sort_order";
+                    categoriesSheet.Cells[1, 7].Value = "image_name";
+                    categoriesSheet.Cells[1, 8].Value = "date_added";
+                    categoriesSheet.Cells[1, 9].Value = "date_modified";
+                    categoriesSheet.Cells[1, 10].Value = "description(en-gb)";
+                    categoriesSheet.Cells[1, 11].Value = "meta_title(en-gb)";
+                    categoriesSheet.Cells[1, 12].Value = "meta_description(en-gb)";
+                    categoriesSheet.Cells[1, 13].Value = "meta_keywords(en-gb)";
+                    categoriesSheet.Cells[1, 14].Value = "store_ids";
+                    categoriesSheet.Cells[1, 15].Value = "layout";
+                    categoriesSheet.Cells[1, 16].Value = "status";
 
-                    // Set up the row index for the first data row
+                    // Write data to the Categories worksheet
                     int rowIndex = 2;
-
-                    // Total categories count for progress tracking
                     int totalCategories = categories.Count;
                     int currentCategory = 0;
 
-                    // Write data to the worksheet, focusing on updated image_name (skip unnecessary fields)
                     foreach (var category in categories)
                     {
-                        bool isParentCategory = string.IsNullOrEmpty(category.ParentId); // Assuming parent categories have an empty ParentId
-
-                        worksheet.Cells[rowIndex, 1].Value = category.CategoryId;
-                        worksheet.Cells[rowIndex, 2].Value = category.ParentId;
-                        worksheet.Cells[rowIndex, 3].Value = category.Name; // Assuming this maps to name(en-gb)
-                        worksheet.Cells[rowIndex, 4].Value = category.Top;
-                        worksheet.Cells[rowIndex, 5].Value = category.Columns;
-                        worksheet.Cells[rowIndex, 6].Value = category.SortOrder;
-                        worksheet.Cells[rowIndex, 7].Value = category.Image; // This is the updated image path
-                        worksheet.Cells[rowIndex, 8].Value = category.DateAdded; // date_added
-                        worksheet.Cells[rowIndex, 9].Value = category.DateModified; // date_modified
-                        worksheet.Cells[rowIndex, 10].Value = category.Description; // description(en-gb) - leave empty or populate as needed
-                        worksheet.Cells[rowIndex, 11].Value = category.Name; // meta_title(en-gb) - set same as name(en-gb)
-                        worksheet.Cells[rowIndex, 12].Value = category.MetaDescription; // meta_description(en-gb) - leave empty or populate as needed
-                        worksheet.Cells[rowIndex, 13].Value = category.MetaKeywords; // meta_keywords(en-gb) - leave empty or populate as needed
-                        worksheet.Cells[rowIndex, 14].Value = string.IsNullOrEmpty(category.StoreIds) ? "0" : category.StoreIds; // store_ids - set to 0
-                        worksheet.Cells[rowIndex, 15].Value = category.Layout; //isParentCategory ? "0:Category" : ""; // layout - "0:Category" for parent, empty for others
-                        worksheet.Cells[rowIndex, 16].Value = category.Status; //"true"; // status - set to true
+                        categoriesSheet.Cells[rowIndex, 1].Value = category.CategoryId;
+                        categoriesSheet.Cells[rowIndex, 2].Value = category.ParentId;
+                        categoriesSheet.Cells[rowIndex, 3].Value = category.Name; // Assuming name(en-gb)
+                        categoriesSheet.Cells[rowIndex, 4].Value = category.Top;
+                        categoriesSheet.Cells[rowIndex, 5].Value = category.Columns;
+                        categoriesSheet.Cells[rowIndex, 6].Value = category.SortOrder;
+                        categoriesSheet.Cells[rowIndex, 7].Value = category.Image; // Updated image path
+                        categoriesSheet.Cells[rowIndex, 8].Value = category.DateAdded; // Date added (if needed)
+                        categoriesSheet.Cells[rowIndex, 9].Value = category.DateModified; // Date modified (if needed)
+                        categoriesSheet.Cells[rowIndex, 10].Value = category.Description; // Description (if needed)
+                        categoriesSheet.Cells[rowIndex, 11].Value = category.Name; // Meta title (same as name)
+                        categoriesSheet.Cells[rowIndex, 12].Value = category.MetaDescription; // Meta description (if needed)
+                        categoriesSheet.Cells[rowIndex, 13].Value = category.MetaKeywords; // Meta keywords (if needed)
+                        categoriesSheet.Cells[rowIndex, 14].Value = "0"; // store_ids is always 0
+                        categoriesSheet.Cells[rowIndex, 15].Value = category.Layout; // Layout for parent: "0:Category", others: empty
+                        categoriesSheet.Cells[rowIndex, 16].Value = category.Status; // Status (true)
 
                         rowIndex++;
 
-                        // Update progress as data is written
+                        // Update progress
                         currentCategory++;
                         int progressPercentage = 80 + (int)((double)currentCategory / totalCategories * 20);
                         progress.Report(new ProgressInfo(progressPercentage, $"Exporting category {category.Name} ({currentCategory}/{totalCategories})..."));
 
-                        // Simulate slight delay to ensure UI remains responsive (for demo purposes)
-                        await Task.Delay(10);
+                        await Task.Delay(10); // To keep UI responsive
                     }
 
-                    // Adjust columns to fit the data
-                    worksheet.Cells.AutoFitColumns();
+                    // Auto fit columns
+                    categoriesSheet.Cells.AutoFitColumns();
+
+                    // Step 2: Create the "CategoryFilters" worksheet (header only, no data)
+                    ExcelWorksheet filtersSheet = package.Workbook.Worksheets.Add("CategoryFilters");
+
+                    // Write headers for the CategoryFilters sheet
+                    filtersSheet.Cells[1, 1].Value = "category_id";
+                    filtersSheet.Cells[1, 2].Value = "filter_group";
+                    filtersSheet.Cells[1, 3].Value = "filter";
+
+                    // Step 3: Create the "CategorySEOKeywords" worksheet
+                    ExcelWorksheet seoKeywordsSheet = package.Workbook.Worksheets.Add("CategorySEOKeywords");
+
+                    // Write headers for the SEO Keywords sheet
+                    seoKeywordsSheet.Cells[1, 1].Value = "category_id";
+                    seoKeywordsSheet.Cells[1, 2].Value = "store_id";
+                    seoKeywordsSheet.Cells[1, 3].Value = "keyword(en-gb)";
+
+                    // Write data for SEO Keywords sheet
+                    rowIndex = 2; // Reset row index for the new sheet
+                    foreach (var category in categories)
+                    {
+                        seoKeywordsSheet.Cells[rowIndex, 1].Value = category.CategoryId;
+                        seoKeywordsSheet.Cells[rowIndex, 2].Value = "0"; // store_id is always 0
+                        seoKeywordsSheet.Cells[rowIndex, 3].Value = category.Name; // Use category name for the keyword(en-gb)
+                        rowIndex++;
+                    }
+
+                    // Auto fit columns for SEO sheet
+                    seoKeywordsSheet.Cells.AutoFitColumns();
 
                     // Save the file to the export path
                     FileInfo fileInfo = new FileInfo(exportPath);
                     await package.SaveAsAsync(fileInfo);
 
+                    // Report completion progress
                     progress.Report(new ProgressInfo(100, "Export completed successfully."));
                 }
             }
             catch (Exception ex)
             {
                 progress.Report(new ProgressInfo(100, $"Error during export: {ex.Message}"));
-                throw; // Rethrow to handle it in the calling method if necessary
+                throw; // Rethrow for higher-level error handling
             }
         }
-
-
 
         private async Task DownloadCategoryImageAsync(string imageUrl, string targetDirectory, HttpClient client, SemaphoreSlim semaphore)
         {
@@ -613,5 +665,11 @@ namespace CrawlyScraper.App
                 progressBar.Value = progressInfo.Value;
             }
         }
+
+        private string SanitizeDirectoryName(string name)
+        {
+            return name.Replace("&amp;", "").Replace("&", "").Replace("  ", " ").Replace(" ", "-").ToLower();
+        }
+
     }
 }

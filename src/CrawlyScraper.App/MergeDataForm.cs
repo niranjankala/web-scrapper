@@ -1,25 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
+﻿using OfficeOpenXml;
 using System.Data;
-using System.Drawing;
-using System.Linq;
-using OfficeOpenXml;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 using LicenseContext = OfficeOpenXml.LicenseContext;
-
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-using System.Diagnostics;
-using System.Reflection;
-using Microsoft.FSharp.Data.UnitSystems.SI.UnitNames;
-using OfficeOpenXml.Packaging.Ionic.Zlib;
-using static System.Net.Mime.MediaTypeNames;
-using System.Diagnostics.Eventing.Reader;
 
 
 namespace CrawlyScraper.App
