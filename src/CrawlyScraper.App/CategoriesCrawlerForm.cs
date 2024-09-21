@@ -134,12 +134,12 @@ namespace CrawlyScraper.App
                             // Process child category image path
                             string imagePath = "";
                             string imageFileName = GetFileNameFromUrl(childCategory.ImageUrl);
-                            string childCategoryImageDirectory = SanitizeDirectoryName(childCategory.Name);
-                            string imageExportPath = Path.Join(imagesExportPath, categoryImageDirectory, childCategoryImageDirectory, imageFileName);
+                            //string childCategoryImageDirectory = SanitizeDirectoryName(childCategory.Name);
+                            string imageExportPath = Path.Join(imagesExportPath, categoryImageDirectory, imageFileName);
 
                             if (!string.IsNullOrEmpty(childCategory.ImageUrl))
                             {
-                                imagePath = $"catalog/default/category/{categoryImageDirectory}/{childCategoryImageDirectory}/{imageFileName}";
+                                imagePath = $"catalog/default/category/{categoryImageDirectory}/{imageFileName}";
                             }
 
                             // Add child category
@@ -400,13 +400,40 @@ namespace CrawlyScraper.App
                     seoKeywordsSheet.Cells[1, 2].Value = "store_id";
                     seoKeywordsSheet.Cells[1, 3].Value = "keyword(en-gb)";
 
+                    // Dictionary to track existing keywords to avoid duplicates
+                    var usedKeywords = new Dictionary<string, int>();
+
                     // Write data for SEO Keywords sheet
                     rowIndex = 2; // Reset row index for the new sheet
                     foreach (var category in categories)
                     {
+                        string keyword = category.Name;
+
+                        // Check for duplicates in the usedKeywords dictionary
+                        if (usedKeywords.ContainsKey(keyword))
+                        {
+                            // Find the parent category name for this child category
+                            var parentCategory = categories.FirstOrDefault(c => c.CategoryId == category.ParentId);
+                            if (parentCategory != null)
+                            {
+                                keyword = $"{parentCategory.Name}-{category.Name}";
+                            }
+                        }
+
+                        // Add or update the keyword in the dictionary to track it
+                        if (!usedKeywords.ContainsKey(keyword))
+                        {
+                            usedKeywords[keyword] = 1;
+                        }
+                        else
+                        {
+                            usedKeywords[keyword]++;
+                        }
+
+                        // Write to the SEO keywords sheet
                         seoKeywordsSheet.Cells[rowIndex, 1].Value = category.CategoryId;
                         seoKeywordsSheet.Cells[rowIndex, 2].Value = "0"; // store_id is always 0
-                        seoKeywordsSheet.Cells[rowIndex, 3].Value = category.Name; // Use category name for the keyword(en-gb)
+                        seoKeywordsSheet.Cells[rowIndex, 3].Value = keyword; // Use updated keyword to avoid duplicates
                         rowIndex++;
                     }
 
@@ -427,6 +454,7 @@ namespace CrawlyScraper.App
                 throw; // Rethrow for higher-level error handling
             }
         }
+
 
         private async Task DownloadCategoryImageAsync(string imageUrl, string targetDirectory, HttpClient client, SemaphoreSlim semaphore)
         {
@@ -477,7 +505,6 @@ namespace CrawlyScraper.App
                             response.EnsureSuccessStatusCode();
 
                             byte[] imageBytes = await response.Content.ReadAsByteArrayAsync();
-
                             await File.WriteAllBytesAsync(exportPath, imageBytes);
                         }
                     }
