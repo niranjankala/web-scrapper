@@ -358,11 +358,11 @@ namespace CrawlyScraper
             }
             else if (productImagePath.StartsWith(@"/"))
             {
-                productImagePath = $"{crawlingWebsiteUrl}{productImagePath}";
+                productImagePath =  $"catalog/default/product{productImagePath}";
             }
             else
-            {
-
+            {                
+                    productImagePath = $"catalog/default/product{noImageUrl}";
             }
             return productImagePath;
         }
